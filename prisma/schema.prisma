@@ -1,0 +1,493 @@
+// PNGUoT Student Challenge Application Portal
+// ---------------------------------------------------------------------------
+// Normalised schema for the DiiHub BizTech Challenge application workflow.
+//
+// Conventions used throughout:
+//   * `deletedAt` marks a soft delete. Every read path filters on it; nothing
+//     is ever hard-deleted so that audit trails stay intact.
+//   * Long-form narrative answers are stored as sanitised HTML (rich text).
+//   * Reference data (School, Section) lives in tables rather than enums so
+//     that faculty can extend it without a migration, and so dashboard
+//     aggregations can group by a real foreign key.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 resolves connection URLs from `prisma.config.ts` (CLI/migrations)
+// and from the driver adapter passed to `new PrismaClient()` (runtime).
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// Fixed role set for role-based access control.
+enum Role {
+  STUDENT
+  REVIEWER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum YearLevel {
+  YEAR_1
+  YEAR_2
+  YEAR_3
+  YEAR_4
+  YEAR_5
+  POSTGRADUATE
+}
+
+/// Which declaration method a team used. The methods an admin permits are
+/// controlled separately via the `declaration.mode` application setting.
+enum DeclarationMode {
+  ELECTRONIC
+  SIGNED_UPLOAD
+}
+
+enum AttachmentKind {
+  SUPPORTING_DOCUMENT
+  PROTOTYPE_ASSET
+  SIGNED_DECLARATION
+}
+
+enum CommentVisibility {
+  /// Visible to the applicant — used for revision feedback.
+  SHARED
+  /// Internal reviewer notes. Never leaves the admin console.
+  INTERNAL
+}
+
+enum NotificationType {
+  APPLICATION_SUBMITTED
+  APPLICATION_RESUBMITTED
+  REVISION_REQUESTED
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+  APPLICATION_UNDER_REVIEW
+  COMMENT_ADDED
+  NEW_SUBMISSION_FOR_REVIEW
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id String @id @default(cuid())
+
+  /// Always stored lower-cased. Domain is enforced in the application layer
+  /// and by a database CHECK constraint added in the initial migration.
+  email String @unique
+  name  String
+  role  Role   @default(STUDENT)
+
+  /// Links this row to the Supabase `auth.users` record.
+  supabaseUserId String? @unique
+
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  studentProfile     StudentProfile?
+  applications       Application[]    @relation("ApplicationOwner")
+  reviewedApps       Application[]    @relation("ApplicationReviewer")
+  comments           Comment[]
+  statusChanges      StatusHistory[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  uploadedAttachments Attachment[]
+  settingUpdates     AppSetting[]
+
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  /// PNGUoT student number, e.g. "25530061".
+  studentId String  @unique
+  firstName String
+  surname   String
+  phone     String?
+
+  schoolId  String?
+  sectionId String?
+  program   String?
+  yearLevel YearLevel?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school  School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([sectionId])
+  @@index([surname, firstName])
+  @@map("student_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+model School {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  code      String  @unique
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections     Section[]
+  profiles     StudentProfile[]
+  applications Application[]
+
+  @@index([isActive, sortOrder])
+  @@map("schools")
+}
+
+model Section {
+  id       String  @id @default(cuid())
+  schoolId String
+  /// e.g. "Information Technology", "Accounting", "Applied Economics".
+  name     String
+  code     String
+  isActive Boolean @default(true)
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  profiles     StudentProfile[]
+  applications Application[]
+  teamMembers  TeamMember[]
+
+  @@unique([schoolId, code])
+  @@index([isActive, sortOrder])
+  @@map("sections")
+}
+
+// ---------------------------------------------------------------------------
+// Application
+// ---------------------------------------------------------------------------
+
+model Application {
+  id String @id @default(cuid())
+
+  /// Human-facing identifier, e.g. "DBTC-2026-0007". Assigned on first submit.
+  referenceNumber String? @unique
+
+  ownerId       String
+  status        ApplicationStatus @default(DRAFT)
+  challengeYear Int
+
+  // --- Section A: applicant details (snapshot at time of application) ------
+  applicantPhone String?
+  schoolId       String?
+  sectionId      String?
+  program        String?
+  yearLevel      YearLevel?
+
+  // --- Section C: venture / project ---------------------------------------
+  projectTitle      String?
+  theme             String?
+  /// SDG codes, e.g. ["SDG_4", "SDG_9"].
+  sdgAlignment      String[] @default([])
+  problemStatement  String?
+  proposedSolution  String?
+  innovation        String?
+  objectives        String?
+  targetUsers       String?
+  expectedImpact    String?
+  sustainability    String?
+  budgetAmount      Decimal? @db.Decimal(12, 2)
+  budgetNotes       String?
+  timeline          String?
+
+  // --- Prototype details ---------------------------------------------------
+  prototypeType     String?
+  prototypeFeatures String?
+  developmentTools  String?
+
+  // --- Alternative solutions vs this solution ------------------------------
+  alternatives  String?
+  justification String?
+
+  // --- Impact & feasibility ------------------------------------------------
+  valueProposition   String?
+  implementationPlan String?
+
+  // --- Workflow ------------------------------------------------------------
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  decisionNote  String?
+  /// Incremented every time the team re-submits after a revision request.
+  revisionCount Int       @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner      User     @relation("ApplicationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  reviewedBy User?    @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  school     School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  section    Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  team          Team?
+  declaration   Declaration?
+  attachments   Attachment[]
+  statusHistory StatusHistory[]
+  comments      Comment[]
+  notifications Notification[]
+
+  /// A student may hold at most one application per challenge year. Enforced
+  /// as a partial unique index in the migration so that soft-deleted rows do
+  /// not block a fresh start.
+  @@index([ownerId, challengeYear])
+  @@index([status, challengeYear])
+  @@index([submittedAt])
+  @@index([schoolId])
+  @@index([sectionId])
+  @@index([deletedAt])
+  @@map("applications")
+}
+
+model Team {
+  id            String @id @default(cuid())
+  applicationId String @unique
+
+  name String
+
+  leaderName      String
+  leaderStudentId String
+  leaderEmail     String
+  leaderPhone     String?
+
+  supervisorName  String?
+  supervisorEmail String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+
+  @@index([name])
+  @@map("teams")
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+
+  studentId String
+  firstName String
+  surname   String
+  sectionId String?
+  /// Free-text fallback when the section is not in the reference list.
+  sectionLabel String?
+  /// Role within the team, e.g. "Developer", "Business Analyst".
+  role      String?
+  email     String?
+  phone     String?
+  isLeader  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@unique([teamId, studentId])
+  @@index([studentId])
+  @@index([sectionId])
+  @@map("team_members")
+}
+
+model Declaration {
+  id            String @id @default(cuid())
+  applicationId String @unique
+
+  mode     DeclarationMode
+  accepted Boolean         @default(false)
+
+  /// Typed full name for the electronic declaration.
+  signatoryName String?
+  signedAt      DateTime?
+
+  /// Captured for non-repudiation of the electronic declaration.
+  ipAddress String?
+  userAgent String?
+
+  /// Set when `mode` is SIGNED_UPLOAD.
+  signedDocumentId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  signedDocument Attachment? @relation("SignedDeclaration", fields: [signedDocumentId], references: [id], onDelete: SetNull)
+
+  @@map("declarations")
+}
+
+model Attachment {
+  id            String @id @default(cuid())
+  applicationId String
+
+  kind        AttachmentKind @default(SUPPORTING_DOCUMENT)
+  fileName    String
+  /// Object key inside the Supabase Storage bucket. Never a public URL —
+  /// downloads always go through a short-lived signed URL.
+  storagePath String         @unique
+  mimeType    String
+  sizeBytes   Int
+  checksum    String?
+
+  uploadedById String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  uploadedBy  User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  declaration Declaration? @relation("SignedDeclaration")
+
+  @@index([applicationId, kind])
+  @@index([deletedAt])
+  @@map("attachments")
+}
+
+model StatusHistory {
+  id            String @id @default(cuid())
+  applicationId String
+
+  fromStatus ApplicationStatus?
+  toStatus   ApplicationStatus
+  actorId    String?
+  /// Reason or feedback recorded with the transition.
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@map("status_history")
+}
+
+model Comment {
+  id            String @id @default(cuid())
+  applicationId String
+  authorId      String
+
+  body       String
+  visibility CommentVisibility @default(INTERNAL)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@index([deletedAt])
+  @@map("comments")
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+
+  type          NotificationType
+  title         String
+  body          String
+  applicationId String?
+
+  readAt      DateTime?
+  emailSentAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorId    String?
+  /// Denormalised so the trail survives account deletion.
+  actorEmail String?
+
+  /// Dot-namespaced verb, e.g. "application.submitted".
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+/// Runtime configuration an administrator can change without a deployment:
+/// maximum team size, upload limits, active declaration mode, submission
+/// window, and the selectable theme list.
+model AppSetting {
+  key         String  @id
+  value       Json
+  description String?
+
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("app_settings")
+}

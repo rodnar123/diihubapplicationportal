@@ -1,0 +1,95 @@
+import {
+  FileText,
+  LayoutDashboard,
+  ListChecks,
+  ScrollText,
+  Settings,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
+import { ROUTES } from "@/lib/routes";
+
+/**
+ * Navigation is described as data so the sidebar, the command palette and the
+ * mobile menu all render the same set of destinations from one definition.
+ */
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  description: string;
+  /** Marks the item active for any path beneath it, not just an exact match. */
+  matchPrefix?: boolean;
+  /** Restricts the entry to full administrators. */
+  adminOnly?: boolean;
+}
+
+export interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+export const STUDENT_NAV: NavGroup[] = [
+  {
+    label: "Challenge",
+    items: [
+      {
+        label: "Dashboard",
+        href: ROUTES.dashboard,
+        icon: LayoutDashboard,
+        description: "Your application status and recent activity",
+      },
+      {
+        label: "My application",
+        href: ROUTES.application,
+        icon: FileText,
+        description: "Complete and submit your entry",
+        matchPrefix: true,
+      },
+    ],
+  },
+];
+
+export const ADMIN_NAV: NavGroup[] = [
+  {
+    label: "Review",
+    items: [
+      {
+        label: "Dashboard",
+        href: ROUTES.admin,
+        icon: LayoutDashboard,
+        description: "Submission statistics and recent activity",
+      },
+      {
+        label: "Applications",
+        href: ROUTES.adminApplications,
+        icon: ListChecks,
+        description: "Search, filter, review and export submissions",
+        matchPrefix: true,
+      },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      {
+        label: "Settings",
+        href: ROUTES.adminSettings,
+        icon: Settings,
+        description: "Team size, uploads, declaration mode and submission window",
+        adminOnly: true,
+      },
+      {
+        label: "Audit log",
+        href: ROUTES.adminAudit,
+        icon: ScrollText,
+        description: "Every action taken in the portal",
+        adminOnly: true,
+      },
+    ],
+  },
+];
+
+export const NAV_ICONS = { Users };

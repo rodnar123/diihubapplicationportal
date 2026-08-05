@@ -1,26 +1,236 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+/*
+ * Custom variants and keyframes required by the shadcn/ui components.
+ * Vendored from `shadcn/tailwind.css` so that the production stylesheet does
+ * not depend on the shadcn CLI package being present at build time.
+ * Re-copy it after a major shadcn/ui upgrade.
+ */
+@import "./shadcn-preset.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * PNG University of Technology palette.
+ * Primary is the university navy; the gold is reserved as an accent so that it
+ * never has to carry text contrast on its own.
+ */
+:root {
+  --background: oklch(0.995 0.002 258);
+  --foreground: oklch(0.19 0.021 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.19 0.021 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.021 260);
+  --primary: oklch(0.4 0.126 258);
+  --primary-foreground: oklch(0.99 0.004 258);
+  --secondary: oklch(0.958 0.011 258);
+  --secondary-foreground: oklch(0.32 0.086 258);
+  --muted: oklch(0.962 0.008 258);
+  --muted-foreground: oklch(0.5 0.024 258);
+  --accent: oklch(0.944 0.024 258);
+  --accent-foreground: oklch(0.32 0.086 258);
+  --destructive: oklch(0.55 0.213 27.5);
+  --border: oklch(0.906 0.011 258);
+  --input: oklch(0.906 0.011 258);
+  --ring: oklch(0.55 0.104 258);
+
+  --brand: oklch(0.76 0.148 78);
+  --brand-foreground: oklch(0.24 0.05 78);
+  --success: oklch(0.52 0.13 155);
+  --success-foreground: oklch(0.985 0.01 155);
+  --warning: oklch(0.64 0.14 62);
+  --warning-foreground: oklch(0.2 0.04 62);
+  --info: oklch(0.53 0.13 240);
+  --info-foreground: oklch(0.985 0.01 240);
+
+  /*
+   * Chart series colours, stepped for the light card surface (#ffffff) and
+   * verified against the lightness band, chroma floor, colour-vision
+   * separation and normal-vision floor. Slots 3–5 sit below 3:1 against white,
+   * so any chart using them ships visible value labels (the relief rule).
+   * Nearly every chart here is single-series and uses slot 1 only.
+   */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+
+  --radius: 0.625rem;
+  --sidebar: oklch(0.31 0.08 258);
+  --sidebar-foreground: oklch(0.94 0.012 258);
+  --sidebar-primary: oklch(0.76 0.148 78);
+  --sidebar-primary-foreground: oklch(0.24 0.05 78);
+  --sidebar-accent: oklch(0.38 0.09 258);
+  --sidebar-accent-foreground: oklch(0.98 0.006 258);
+  --sidebar-border: oklch(0.42 0.075 258);
+  --sidebar-ring: oklch(0.76 0.148 78);
+}
+
+.dark {
+  --background: oklch(0.17 0.022 260);
+  --foreground: oklch(0.955 0.008 258);
+  --card: oklch(0.225 0.026 260);
+  --card-foreground: oklch(0.955 0.008 258);
+  --popover: oklch(0.225 0.026 260);
+  --popover-foreground: oklch(0.955 0.008 258);
+  --primary: oklch(0.74 0.115 250);
+  --primary-foreground: oklch(0.18 0.04 258);
+  --secondary: oklch(0.29 0.031 258);
+  --secondary-foreground: oklch(0.955 0.008 258);
+  --muted: oklch(0.28 0.028 258);
+  --muted-foreground: oklch(0.72 0.024 258);
+  --accent: oklch(0.32 0.04 258);
+  --accent-foreground: oklch(0.965 0.008 258);
+  --destructive: oklch(0.7 0.185 22.5);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.62 0.09 250);
+
+  --brand: oklch(0.81 0.146 80);
+  --brand-foreground: oklch(0.22 0.05 78);
+  --success: oklch(0.72 0.14 155);
+  --success-foreground: oklch(0.17 0.03 155);
+  --warning: oklch(0.79 0.15 70);
+  --warning-foreground: oklch(0.19 0.04 62);
+  --info: oklch(0.72 0.12 240);
+  --info-foreground: oklch(0.17 0.03 240);
+
+  /* Re-stepped for the dark card surface — not an automatic flip of the light
+     values. All five clear 3:1 against it. */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+
+  --sidebar: oklch(0.21 0.028 260);
+  --sidebar-foreground: oklch(0.94 0.012 258);
+  --sidebar-primary: oklch(0.81 0.146 80);
+  --sidebar-primary-foreground: oklch(0.22 0.05 78);
+  --sidebar-accent: oklch(0.3 0.036 258);
+  --sidebar-accent-foreground: oklch(0.965 0.008 258);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.81 0.146 80);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Respect users who ask the OS to reduce motion (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Long-form narrative answers are stored as sanitised HTML; give them
+     readable defaults wherever they are rendered back to the user. */
+  .rich-text-content {
+    @apply text-sm leading-relaxed;
+  }
+  .rich-text-content p {
+    @apply mb-2 last:mb-0;
+  }
+  .rich-text-content strong {
+    @apply font-semibold;
+  }
+  .rich-text-content em {
+    @apply italic;
+  }
+  .rich-text-content ul {
+    @apply mb-2 ml-5 list-disc space-y-1 last:mb-0;
+  }
+  .rich-text-content ol {
+    @apply mb-2 ml-5 list-decimal space-y-1 last:mb-0;
+  }
+  .rich-text-content h3 {
+    @apply mt-3 mb-1 text-base font-semibold first:mt-0;
+  }
+  .rich-text-content a {
+    @apply text-primary underline underline-offset-4;
+  }
+}
+
+/* Printing an application should produce the form, not the app chrome. */
+@media print {
+  .print\:hidden,
+  [data-print="hide"] {
+    display: none !important;
+  }
+  .print-surface {
+    box-shadow: none !important;
+    border: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
 }
