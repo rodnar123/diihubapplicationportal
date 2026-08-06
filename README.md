@@ -187,7 +187,7 @@ See `.env.example` for the annotated template.
 | `AUTH_SECRET` | ✅ | Signs the session JWT (`npx auth secret`) |
 | `AUTH_GOOGLE_ID` | ✅ | Google OAuth client ID |
 | `AUTH_GOOGLE_SECRET` | ✅ | Google OAuth client secret |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL (storage) |
+| `SUPABASE_URL` | ✅ | Supabase project URL (storage). `NEXT_PUBLIC_SUPABASE_URL` is accepted too. |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server-only. Storage access. **Never expose.** |
 | `SUPABASE_STORAGE_BUCKET` | | Defaults to `application-attachments` |
 | `NEXT_PUBLIC_APP_URL` | ✅ | Absolute base URL — used in email links and the OAuth redirect |
@@ -433,6 +433,36 @@ Deploys cleanly to Vercel or any Node host.
 4. Run `npm run db:deploy` against the production database as a release step.
 5. Run `npm run db:seed` **once** to install reference data and settings. In
    production this seeds schools, sections, settings and administrators only.
+
+Set the variables **before** the first build — the Supabase origin is compiled
+into the Content Security Policy at build time, so adding it afterwards needs a
+redeploy to take effect. On Vercel, tick **Production, Preview and Development**;
+a Production-only variable is absent from preview builds.
+
+### If the build fails on configuration
+
+Every `NEXT_PUBLIC_*` variable has a default, so none of them can fail a build —
+that is deliberate, because the one prerendered page (`/_not-found`) imports the
+root layout, and anything required there fails the whole build with a message
+that names the page rather than the variable.
+
+So a configuration failure is always a **server** variable. The error prints an
+`[env]` block listing which expected names the build could actually see:
+
+```
+[env] Invalid server environment configuration:
+  - SUPABASE_URL: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) must be a valid URL…
+
+[env] Variables visible to this build:
+  [set]     DATABASE_URL
+  [MISSING] SUPABASE_URL
+  [MISSING] NEXT_PUBLIC_SUPABASE_URL
+```
+
+Blank values count as absent, and values are trimmed — but a value wrapped in
+quotes is taken literally and will fail a URL check. Paste raw values.
+
+### Function limits
 
 The bulk PDF export is tuned to deploy on **any** Vercel plan: `maxDuration = 60`
 (the Hobby ceiling — a higher value is rejected at deploy time) with a 25-document

@@ -2,9 +2,15 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
+// Accepts either spelling: Vercel's Supabase integration injects
+// `SUPABASE_URL`, a hand-configured project usually has the NEXT_PUBLIC one.
+// Missing simply omits the origin from `connect-src` rather than failing the
+// build — the CSP is still valid, just without the Supabase allowance.
 const supabaseOrigin = (() => {
   try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin;
+    return new URL(
+      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    ).origin;
   } catch {
     return "";
   }
