@@ -9,14 +9,22 @@ import { renderApplicationBundlePdf } from "@/services/application/pdf-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Rendering many application forms is slow; give it room. */
-export const maxDuration = 300;
 
 /**
- * Capped well below the CSV limit: each application is a multi-page render,
- * and a hundred is already a substantial print job.
+ * 60 seconds is the ceiling on Vercel's Hobby plan, and a `maxDuration` above
+ * the plan's limit is rejected at deploy time — so this value is chosen to
+ * deploy anywhere rather than to be as generous as possible. On a plan that
+ * allows longer functions this can be raised to 300, and `MAX_DOCUMENTS` with
+ * it.
  */
-const MAX_DOCUMENTS = 100;
+export const maxDuration = 60;
+
+/**
+ * Each application is a multi-page render, so the batch size is set to what
+ * comfortably finishes inside `maxDuration` rather than to a round number.
+ * Reviewers exporting a larger set page through the filters instead.
+ */
+const MAX_DOCUMENTS = 25;
 
 export async function GET(request: NextRequest) {
   const user = await getSessionUser();

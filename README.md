@@ -434,8 +434,9 @@ Deploys cleanly to Vercel or any Node host.
 5. Run `npm run db:seed` **once** to install reference data and settings. In
    production this seeds schools, sections, settings and administrators only.
 
-The bulk PDF export sets `maxDuration = 300`; on Vercel this needs a plan that
-allows it, or lower the `MAX_DOCUMENTS` cap in
+The bulk PDF export is tuned to deploy on **any** Vercel plan: `maxDuration = 60`
+(the Hobby ceiling — a higher value is rejected at deploy time) with a 25-document
+batch. On a plan that allows longer functions, raise both in
 `src/app/api/admin/applications/export-pdf/route.ts`.
 
 ---
@@ -450,9 +451,10 @@ Stated plainly rather than discovered later:
   `src/components/brand/university-mark.tsx` draws a stand-in; drop the real
   artwork in `public/` and swap that component and `Crest` in
   `src/lib/pdf/pdf-primitives.tsx`.
-- **Bulk PDF export is capped at 100 applications** per request and produces one
+- **Bulk PDF export is capped at 25 applications** per request, sized to finish
+  inside the 60-second function limit of Vercel's Hobby plan. It produces one
   combined document rather than a ZIP of separate files — which is what a panel
-  printing a batch actually wants.
+  printing a batch actually wants. Raise both limits together on a larger plan.
 - **CSV export is capped at 2000 rows** per request.
 - **No automated test suite.** The type system, Zod schemas and database
   constraints carry the correctness load; a test suite was not in scope.
