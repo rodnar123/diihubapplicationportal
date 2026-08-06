@@ -37,13 +37,31 @@ const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-const parsed = serverSchema.safeParse(process.env);
+/**
+ * A variable created in a hosting dashboard but left blank arrives as `""`,
+ * not `undefined`, so `.default()` would never fire. Treat blank as absent —
+ * which is what anyone who left the field empty intended.
+ */
+const withoutBlanks = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => value !== undefined && value.trim() !== ""),
+);
+
+const parsed = serverSchema.safeParse(withoutBlanks);
 
 if (!parsed.success) {
   const issues = parsed.error.issues
     .map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`)
     .join("\n");
-  throw new Error(`Invalid server environment configuration:\n${issues}`);
+
+  throw new Error(
+    [
+      "Invalid server environment configuration:",
+      issues,
+      "",
+      "Set these in your hosting provider's environment variables and redeploy.",
+      "Paste the raw value — do not wrap it in quotes.",
+    ].join("\n"),
+  );
 }
 
 export const serverEnv = parsed.data;
