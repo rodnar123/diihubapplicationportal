@@ -3,25 +3,24 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { Role, type YearLevel } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db/prisma";
 import { forbidden as forbiddenError, unauthenticated } from "@/lib/errors";
 import { ROUTES } from "@/lib/routes";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { provisionUser } from "@/services/identity/provision-user";
 
 /**
  * The authenticated principal, as the application understands it.
  *
- * Note that `role` comes from our own `users` table, never from a JWT claim:
- * Supabase authenticates, Prisma authorises.
+ * Note that `role` comes from our own `users` table, never from a token claim:
+ * Google authenticates, Prisma authorises.
  */
 export interface SessionUser {
   id: string;
   email: string;
   name: string;
   role: Role;
-  supabaseUserId: string | null;
+  authProviderId: string | null;
   profile: {
     id: string;
     studentId: string;
@@ -67,36 +66,22 @@ function profileIsComplete(profile: {
  * one Supabase verification and one database read, not ten of each.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const session = await auth();
+  const userId = session?.user?.id;
+  const email = session?.user?.email;
 
-  if (!authUser?.email) return null;
+  if (!userId && !email) return null;
 
-  let user = await prisma.user.findUnique({
-    where: { email: authUser.email.toLowerCase() },
+  // Prefer the id stamped on the token; fall back to the address so a session
+  // minted before the id was recorded still resolves.
+  const user = await prisma.user.findFirst({
+    where: userId ? { id: userId } : { email: email!.toLowerCase() },
     include: { studentProfile: true },
   });
 
-  // Self-healing: a verified Supabase identity with no local row (for example
-  // after a database restore) is provisioned on the spot rather than being
-  // stranded in a redirect loop.
-  if (!user) {
-    const provisioned = await provisionUser({
-      email: authUser.email,
-      supabaseUserId: authUser.id,
-      fullNameHint: (authUser.user_metadata?.full_name as string | undefined) ?? null,
-    });
-
-    if (!provisioned.ok) return null;
-
-    user = await prisma.user.findUnique({
-      where: { id: provisioned.userId },
-      include: { studentProfile: true },
-    });
-  }
-
+  // A session whose user row has been deactivated, soft-deleted or removed is
+  // treated as anonymous. The role check happens here rather than against a
+  // token claim precisely so that revocation takes effect immediately.
   if (!user || !user.isActive || user.deletedAt) return null;
 
   return {
@@ -104,7 +89,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     email: user.email,
     name: user.name,
     role: user.role,
-    supabaseUserId: user.supabaseUserId,
+    authProviderId: user.authProviderId,
     profile: user.studentProfile
       ? {
           id: user.studentProfile.id,

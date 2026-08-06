@@ -1,136 +1,121 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
-import Link from "next/link";
-import { AlertCircle, ArrowRight, Loader2, MailCheck, ShieldCheck } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  INVALID_EMAIL_DOMAIN_MESSAGE,
-  evaluateEmailPolicy,
-  isConsumerEmail,
-} from "@/domain/identity/email";
 import { clientEnv } from "@/lib/env";
-import { ROUTES } from "@/lib/routes";
-import { requestSignInLink, type SignInState } from "./actions";
+import { signInWithGoogle } from "./actions";
 
-const INITIAL_STATE: SignInState = { status: "idle" };
+/**
+ * Google's brand mark. Inlined rather than loaded from Google's CDN because
+ * the Content Security Policy restricts images to this origin — and an
+ * external request on the sign-in page is one more thing that can fail.
+ */
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 18 18" className="size-4.5" aria-hidden focusable="false">
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62Z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58Z"
+      />
+    </svg>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Redirecting to Google…
+        </>
+      ) : (
+        <>
+          <GoogleMark />
+          Continue with Google
+        </>
+      )}
+    </Button>
+  );
+}
 
 const STUDENT_DOMAIN = clientEnv.NEXT_PUBLIC_STUDENT_EMAIL_DOMAIN;
+const STAFF_DOMAIN = STUDENT_DOMAIN.replace(/^student\./, "");
 
-export function SignInForm({ nextPath }: { nextPath?: string }) {
-  const [state, formAction, isPending] = useActionState(requestSignInLink, INITIAL_STATE);
-  const [email, setEmail] = useState("");
-  const [touched, setTouched] = useState(false);
-  const emailId = useId();
-  const hintId = useId();
-
-  // Live domain feedback so a student is told *before* submitting that a Gmail
-  // address will not work.
-  const clientPolicy = email.trim() ? evaluateEmailPolicy(email, { studentDomain: STUDENT_DOMAIN }) : null;
-  const showClientError = touched && clientPolicy?.ok === false;
-  const clientMessage = showClientError
-    ? isConsumerEmail(email)
-      ? INVALID_EMAIL_DOMAIN_MESSAGE
-      : clientPolicy.message
-    : undefined;
-
-  if (state.status === "sent") {
-    return (
-      <div className="space-y-6 text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-success/10 text-success">
-          <MailCheck className="size-7" aria-hidden />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight">Check your inbox</h1>
-          <p className="text-sm text-muted-foreground">
-            We sent a secure sign-in link to{" "}
-            <span className="font-medium text-foreground">{state.email}</span>. The link is valid for
-            one hour and can be used once.
-          </p>
-        </div>
-        <Alert>
-          <AlertCircle className="size-4" aria-hidden />
-          <AlertTitle>Not seeing it?</AlertTitle>
-          <AlertDescription>
-            Check your spam or junk folder. University mail can take a minute or two to arrive.
-          </AlertDescription>
-        </Alert>
-        <Button asChild variant="outline" className="w-full">
-          <Link href={ROUTES.signIn}>Use a different email address</Link>
-        </Button>
-      </div>
-    );
-  }
-
+export function SignInForm({
+  nextPath,
+  errorMessage,
+}: {
+  nextPath?: string;
+  errorMessage?: string;
+}) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
         <p className="text-sm text-muted-foreground">
-          Use your official university email account. We&rsquo;ll email you a secure link — there is
-          no password to remember.
+          Use your university Google account. There is no separate password for this portal.
         </p>
       </div>
 
-      {state.status === "error" && state.message && (
+      {errorMessage && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="size-4" aria-hidden />
           <AlertTitle>We couldn&rsquo;t sign you in</AlertTitle>
-          <AlertDescription>{state.message}</AlertDescription>
+          <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
 
-      <form action={formAction} className="space-y-5" noValidate>
+      <form action={signInWithGoogle}>
         {nextPath && <input type="hidden" name="next" value={nextPath} />}
-
-        <Field data-invalid={showClientError || undefined}>
-          <FieldLabel htmlFor={emailId}>University email address</FieldLabel>
-          <Input
-            id={emailId}
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            autoFocus
-            required
-            spellCheck={false}
-            placeholder={`25530061jose@${STUDENT_DOMAIN}`}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            onBlur={() => setTouched(true)}
-            aria-describedby={hintId}
-            aria-invalid={showClientError || undefined}
-          />
-          <FieldDescription id={hintId}>
-            Students sign in with <code className="font-mono">@{STUDENT_DOMAIN}</code>. Personal
-            accounts such as Gmail, Yahoo or Outlook are not accepted.
-          </FieldDescription>
-          {clientMessage && <FieldError>{clientMessage}</FieldError>}
-        </Field>
-
-        <Button type="submit" className="w-full" disabled={isPending || clientPolicy?.ok === false}>
-          {isPending ? (
-            <>
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-              Sending link…
-            </>
-          ) : (
-            <>
-              Email me a sign-in link
-              <ArrowRight className="size-4" aria-hidden />
-            </>
-          )}
-        </Button>
+        <SubmitButton />
       </form>
+
+      <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+        <p className="text-sm font-medium">Who can sign in</p>
+        <ul className="space-y-1.5 text-sm text-muted-foreground">
+          <li>
+            <span className="font-medium text-foreground">Students</span> —{" "}
+            <code className="rounded bg-background px-1.5 py-0.5 font-mono text-xs">
+              @{STUDENT_DOMAIN}
+            </code>
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Staff</span> —{" "}
+            <code className="rounded bg-background px-1.5 py-0.5 font-mono text-xs">
+              @{STAFF_DOMAIN}
+            </code>{" "}
+            (challenge office only)
+          </li>
+        </ul>
+        <p className="text-xs text-muted-foreground">
+          Personal Google accounts — Gmail, or any address outside the university — are rejected.
+          If the account chooser offers a personal account, pick your university one.
+        </p>
+      </div>
 
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span>
-          Access is restricted to members of the university. Sign-in attempts are logged.
+          We receive only your name, email address and profile picture from Google. Sign-in
+          attempts are logged.
         </span>
       </p>
     </div>

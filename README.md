@@ -37,7 +37,7 @@ filter, review, decide, print and export.
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS v4 + shadcn/ui (Radix) |
 | Database | PostgreSQL (Supabase) via Prisma 7 + `@prisma/adapter-pg` |
-| Auth | Supabase Auth (passwordless email link) + Prisma-owned roles |
+| Auth | NextAuth v5 (Auth.js) + Google OAuth, with Prisma-owned roles |
 | Storage | Supabase Storage (private bucket, signed URLs) |
 | Forms | React Hook Form + Zod v4 |
 | Tables | TanStack Table v9 |
@@ -68,9 +68,10 @@ Principles this codebase actually holds to:
 - **The domain layer is pure.** `src/domain/**` has no database, no `next/*`, no
   environment access — which is why the same completeness rules run in the
   browser (to grey out the submit button) and on the server (to enforce it).
-- **Authentication ≠ authorisation.** Supabase proves who someone is; the
-  `users` table decides what they may do. A role is never read from a JWT
-  claim, so it cannot be forged by editing a token.
+- **Authentication ≠ authorisation.** Google proves who someone is; the `users`
+  table decides what they may do. A role is never read from a token claim, so
+  it cannot be forged — and revoking access takes effect on the next request
+  rather than when the session happens to expire.
 - **Server Actions are thin.** They parse, sanitise, delegate to a service and
   return a typed `ActionResult`. Business rules live in `services/`, not in the
   route.
@@ -98,23 +99,60 @@ Open <http://localhost:3000>.
 
 ---
 
+## Google OAuth setup
+
+Sign-in is Google-only. There are no passwords and no magic links.
+
+### 1. Create the OAuth client
+
+**Google Cloud Console → APIs & Services → Credentials → Create credentials →
+OAuth client ID → Web application**
+
+- Authorised JavaScript origins: `https://your-domain` (and
+  `http://localhost:3000` for development)
+- Authorised redirect URIs — this must match exactly:
+  ```
+  https://your-domain/api/auth/callback/google
+  http://localhost:3000/api/auth/callback/google
+  ```
+
+Copy the client ID and secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
+
+Generate the session-signing secret with:
+
+```bash
+npx auth secret
+```
+
+### 2. Domain restriction
+
+The authorisation request carries `hd=*`, which asks Google to show only
+Workspace accounts in the chooser. **That is a hint, not a control** — `hd` can
+be stripped from the URL by anyone who cares to. The rule is enforced in
+`src/auth.ts`'s `signIn` callback, which:
+
+1. rejects an address Google reports as unverified;
+2. requires the domain to be `@student.pnguot.ac.pg` (students) or
+   `@pnguot.ac.pg` (staff);
+3. hands off to `provisionUser`, which additionally refuses staff addresses
+   that are not on the admin allowlist.
+
+The database `CHECK` constraint on `users.email` is the final backstop. A
+personal Gmail account cannot get past any of these layers.
+
+> If the university publishes its Workspace domains as something other than
+> these two, change `NEXT_PUBLIC_STUDENT_EMAIL_DOMAIN` / `STAFF_EMAIL_DOMAIN`
+> **and** the `CHECK` constraint in
+> `prisma/migrations/20260101000100_constraints_and_search_indexes/`.
+
+---
+
 ## Supabase setup
 
-Three things need configuring in the Supabase dashboard.
+Supabase provides **the database and file storage only** — it no longer issues
+sessions, and there is no browser-side Supabase client.
 
-### 1. Restrict sign-ups to university addresses
-
-The portal enforces the domain rule in three places (browser, Server Action,
-auth callback) and the database has a `CHECK` constraint as a backstop.
-
-**Authentication → Sign In / Providers → Email**
-
-- Enable the **Email** provider.
-- Under **Authentication → URL Configuration**, set:
-  - Site URL: `https://your-domain` (or `http://localhost:3000`)
-  - Redirect URLs: add `https://your-domain/auth/callback`
-
-### 2. Create the storage bucket
+### 1. Create the storage bucket
 
 **Storage → New bucket**
 
@@ -127,7 +165,7 @@ auth callback) and the database has a `CHECK` constraint as a backstop.
 No RLS policies are needed on the bucket: the app reaches storage only through
 the service-role key, from server code that has already checked permission.
 
-### 3. Connection strings
+### 2. Connection strings
 
 **Project Settings → Database → Connection string**
 
@@ -146,11 +184,13 @@ See `.env.example` for the annotated template.
 |---|---|---|
 | `DATABASE_URL` | ✅ | Pooled Postgres connection for the app |
 | `DIRECT_URL` | ✅ | Direct connection for migrations |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Public anon key |
+| `AUTH_SECRET` | ✅ | Signs the session JWT (`npx auth secret`) |
+| `AUTH_GOOGLE_ID` | ✅ | Google OAuth client ID |
+| `AUTH_GOOGLE_SECRET` | ✅ | Google OAuth client secret |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL (storage) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server-only. Storage access. **Never expose.** |
 | `SUPABASE_STORAGE_BUCKET` | | Defaults to `application-attachments` |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Absolute base URL — used in email links and the auth redirect |
+| `NEXT_PUBLIC_APP_URL` | ✅ | Absolute base URL — used in email links and the OAuth redirect |
 | `NEXT_PUBLIC_STUDENT_EMAIL_DOMAIN` | | Defaults to `student.pnguot.ac.pg` |
 | `STAFF_EMAIL_DOMAIN` | | Defaults to `pnguot.ac.pg` |
 | `ADMIN_EMAIL_ALLOWLIST` | ✅ | Comma-separated staff addresses granted `ADMIN` |
@@ -172,7 +212,7 @@ Normalised, with soft deletes, timestamps and indexes throughout.
 
 | Model | Purpose |
 |---|---|
-| `User` | Identity + role. Linked to Supabase `auth.users`. |
+| `User` | Identity + role. `authProviderId` holds Google's `sub` claim. |
 | `StudentProfile` | Student number, name, school, section, programme, year |
 | `School`, `Section` | Reference data — real FKs so dashboard aggregation is exact |
 | `Application` | The form itself, plus workflow state |
@@ -187,7 +227,7 @@ Normalised, with soft deletes, timestamps and indexes throughout.
 
 ### Migrations
 
-Two migrations ship:
+Three migrations ship:
 
 1. `20260101000000_init` — tables, enums, foreign keys, indexes.
 2. `20260101000100_constraints_and_search_indexes` — defence in depth:
@@ -197,6 +237,8 @@ Two migrations ship:
    - `pg_trgm` GIN indexes backing the admin search.
    - `CHECK` that a submitted application carries a reference number, that a
      decided one carries a decision timestamp, and that attachments are non-empty.
+3. `20260806000000_google_auth_identity` — renames `supabaseUserId` to
+   `authProviderId` and clears stale values, following the move to Google OAuth.
 
 ```bash
 npm run db:migrate    # development — create and apply
@@ -211,10 +253,10 @@ npm run db:studio     # browse the data
 
 Three roles: `STUDENT`, `REVIEWER`, `ADMIN`.
 
-**Students self-register.** Any `@student.pnguot.ac.pg` address can request a
-sign-in link and is provisioned automatically on first use.
+**Students self-register.** Any `@student.pnguot.ac.pg` Google account can sign
+in and is provisioned automatically on first use.
 
-**Staff do not self-register.** A `@pnguot.ac.pg` address can only sign in if it
+**Staff do not self-register.** A `@pnguot.ac.pg` account can only sign in if it
 is either listed in `ADMIN_EMAIL_ALLOWLIST` or already exists as an active
 `ADMIN`/`REVIEWER` row. This stops anyone who happens to hold a university staff
 mailbox from reaching the review console.
@@ -227,7 +269,7 @@ VALUES (gen_random_uuid()::text, 'jane.reviewer@pnguot.ac.pg',
         'Jane Reviewer', 'REVIEWER', now(), now());
 ```
 
-They can then request a sign-in link normally. `ADMIN` additionally unlocks
+They can then sign in with Google normally. `ADMIN` additionally unlocks
 Settings and the Audit log.
 
 Anything not on an institutional domain is refused with the required wording:
@@ -272,10 +314,12 @@ whole so cross-field rules (min ≤ max, opens before closes) cannot be violated
 
 | Control | Implementation |
 |---|---|
-| Domain restriction | Browser + Server Action + auth callback + database `CHECK` |
-| RBAC | Role read from Prisma on every request, never from a JWT claim |
+| Identity | Google OAuth (NextAuth v5). No passwords are stored or handled. |
+| Domain restriction | `hd` hint + `signIn` callback + `provisionUser` + database `CHECK` |
+| RBAC | Role read from Prisma on every request, never from a token claim |
 | Route protection | `src/proxy.ts` gates authentication; each layout re-checks role |
-| CSRF | Server Actions are origin-checked by Next.js; sign-out is POST-only |
+| Session | 12-hour signed JWT, HTTP-only cookie; revocation is immediate via the DB role read |
+| CSRF | NextAuth state/PKCE on the OAuth flow; Server Actions origin-checked; sign-out is POST-only |
 | Rate limiting | Sign-in, uploads, submissions, exports, comments |
 | Input sanitisation | DOMPurify allowlist on every rich-text and plain-text write |
 | XSS | Stored HTML is sanitised on write and rendered from one reviewed path |
@@ -326,11 +370,14 @@ prisma/
   seed.ts                    Reference data, settings, demo applications
 src/
   app/
-    (auth)/sign-in/          Passwordless sign-in
+    (auth)/sign-in/          Google sign-in
     (student)/               Dashboard + application wizard
     (admin)/                 Review console, settings, audit log
+    api/auth/[...nextauth]/  NextAuth OAuth endpoints
     api/                     PDF, attachments, CSV/PDF export
-    auth/                    Callback + sign-out route handlers
+    auth/                    Error page + sign-out route handler
+  auth.config.ts             Edge-safe auth config (used by proxy.ts)
+  auth.ts                    Full auth config — domain gate + provisioning
   components/
     application/             Wizard steps, summary, timeline, uploads
     admin/                   Table, filters, charts, review panel, settings
@@ -377,8 +424,11 @@ src/
 Deploys cleanly to Vercel or any Node host.
 
 1. Set every environment variable from the table above. `NEXT_PUBLIC_APP_URL`
-   must be the real public URL — the auth callback and email links use it.
-2. Add `<your-domain>/auth/callback` to Supabase's redirect allowlist.
+   must be the real public URL — email links use it.
+2. Add `https://<your-domain>/api/auth/callback/google` to the Google OAuth
+   client's **Authorised redirect URIs**. It must match byte-for-byte, so if
+   you use a custom domain, register that domain rather than the
+   `*.vercel.app` deployment URL.
 3. Build command: `npm run build` (runs `prisma generate` first).
 4. Run `npm run db:deploy` against the production database as a release step.
 5. Run `npm run db:seed` **once** to install reference data and settings. In
@@ -408,3 +458,10 @@ Stated plainly rather than discovered later:
   constraints carry the correctness load; a test suite was not in scope.
 - **Reviewer accounts are provisioned by SQL or the allowlist** — there is no
   user-management screen, since the specification did not call for one.
+- **NextAuth v5 is a beta release.** It is the only version that supports the
+  Next.js 16 App Router; v4 does not. The APIs used here (`handlers`, `auth`,
+  `signIn`, `signOut`, the `signIn`/`jwt`/`session` callbacks) have been stable
+  across the beta series, but pin the version before a release cycle.
+- **Sign-in requires a Google account on the university domain.** If a student
+  has a PNGUoT mailbox that is not Google Workspace–backed, they cannot sign in.
+  Confirm with IT that both domains are on Workspace before go-live.

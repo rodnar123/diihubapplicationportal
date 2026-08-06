@@ -9,7 +9,8 @@ export const ROUTES = {
   home: "/",
   signIn: "/sign-in",
   authError: "/auth/error",
-  authCallback: "/auth/callback",
+  /** NextAuth owns everything under this prefix. */
+  authApi: "/api/auth",
   signOut: "/auth/sign-out",
   accessDenied: "/access-denied",
 
@@ -36,7 +37,7 @@ export const PUBLIC_PATHS = [
   ROUTES.home,
   ROUTES.signIn,
   ROUTES.authError,
-  ROUTES.authCallback,
+  ROUTES.authApi,
   ROUTES.signOut,
   ROUTES.accessDenied,
 ] as const;

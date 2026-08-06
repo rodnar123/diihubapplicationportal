@@ -32,7 +32,11 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  // Google is listed because the sign-in button POSTs to a Server Action that
+  // responds with a redirect to Google's authorisation endpoint — browsers
+  // apply `form-action` to redirects that follow a form submission, so
+  // `'self'` alone would silently block sign-in.
+  "form-action 'self' https://accounts.google.com",
   "worker-src 'self' blob:",
   ...(isProduction ? ["upgrade-insecure-requests"] : []),
 ].join("; ");

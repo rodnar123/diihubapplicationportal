@@ -20,6 +20,13 @@ const csv = z
 const serverSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DIRECT_URL: z.string().optional(),
+
+  // --- Authentication (NextAuth + Google) ---------------------------------
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
+  AUTH_GOOGLE_ID: z.string().min(1, "AUTH_GOOGLE_ID is required"),
+  AUTH_GOOGLE_SECRET: z.string().min(1, "AUTH_GOOGLE_SECRET is required"),
+
+  // --- Storage -------------------------------------------------------------
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("application-attachments"),
   STAFF_EMAIL_DOMAIN: z.string().min(1).default("pnguot.ac.pg"),

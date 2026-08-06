@@ -18,21 +18,17 @@ export const metadata: Metadata = {
  * generic case rather than echoing an attacker-supplied string to the page.
  */
 const REASONS: Record<string, { title: string; body: string; showContact?: boolean }> = {
-  link_invalid: {
-    title: "That sign-in link has expired",
-    body: "Sign-in links can be used once and stay valid for one hour. Request a new one to continue.",
-  },
-  link_missing: {
-    title: "Incomplete sign-in link",
-    body: "The link was missing the information we need to verify it. This usually happens when an email client rewrites the address. Request a new link and open it directly.",
-  },
   no_identity: {
     title: "We couldn't read your account",
-    body: "The link verified, but no email address came back with it. Please request a new link.",
+    body: "Google completed the sign-in but did not return an email address. Please try again, and make sure you grant access to your email when prompted.",
+  },
+  email_unverified: {
+    title: "Email address not verified",
+    body: "Google reports that this address has not been verified. Verify it with Google, or sign in with your university account instead.",
   },
   domain_not_allowed: {
-    title: "Email address not permitted",
-    body: INVALID_EMAIL_DOMAIN_MESSAGE,
+    title: "Account not permitted",
+    body: `${INVALID_EMAIL_DOMAIN_MESSAGE} You appear to have signed in with a personal Google account — choose your university account from the account chooser and try again.`,
   },
   staff_not_authorised: {
     title: "Staff access not granted",
@@ -48,16 +44,21 @@ const REASONS: Record<string, { title: string; body: string; showContact?: boole
 
 const FALLBACK: (typeof REASONS)[string] = {
   title: "We couldn't complete your sign-in",
-  body: "Something went wrong while verifying your link. Please request a new one.",
+  body: "Something went wrong while signing you in with Google. Please try again.",
 };
 
 export default async function AuthErrorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string }>;
+  searchParams: Promise<{ reason?: string; error?: string }>;
 }) {
-  const { reason } = await searchParams;
-  const detail = (reason && REASONS[reason]) || FALLBACK;
+  // `reason` comes from our own sign-in callback; `error` is NextAuth's own
+  // code for failures that happen before that callback runs.
+  const { reason, error } = await searchParams;
+  const detail =
+    (reason && REASONS[reason]) ||
+    (error === "AccessDenied" ? REASONS.domain_not_allowed : undefined) ||
+    FALLBACK;
 
   return (
     <div className="flex min-h-dvh flex-col bg-muted/40">

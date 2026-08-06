@@ -13,11 +13,11 @@ import { clientEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
 
 /**
- * Turns a verified Supabase identity into a local `User` row.
+ * Turns a verified Google identity into a local `User` row.
  *
- * Supabase owns authentication; this table owns authorisation and everything
- * the domain needs. Keeping them separate means a role can never be forged by
- * editing a JWT claim — the role is read from our database on every request.
+ * Google owns authentication; this table owns authorisation and everything the
+ * domain needs. Keeping them separate means a role can never be forged by
+ * editing a token claim — the role is read from our database on every request.
  */
 
 export type ProvisionResult =
@@ -68,7 +68,8 @@ async function resolveRole(email: string): Promise<
 
 export async function provisionUser(input: {
   email: string;
-  supabaseUserId: string;
+  /** Google's stable `sub` claim. Null when the provider did not supply one. */
+  authProviderId: string | null;
   fullNameHint?: string | null;
 }): Promise<ProvisionResult> {
   const email = normalizeEmail(input.email);
@@ -103,7 +104,7 @@ export async function provisionUser(input: {
   const user = await prisma.user.upsert({
     where: { email },
     update: {
-      supabaseUserId: input.supabaseUserId,
+      authProviderId: input.authProviderId,
       lastLoginAt: new Date(),
       // An allowlisted address is promoted on sign-in; a student is never
       // demoted by this path.
@@ -113,7 +114,7 @@ export async function provisionUser(input: {
       email,
       name: displayName,
       role: roleResult.role,
-      supabaseUserId: input.supabaseUserId,
+      authProviderId: input.authProviderId,
       lastLoginAt: new Date(),
     },
   });

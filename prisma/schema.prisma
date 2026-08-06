@@ -95,8 +95,10 @@ model User {
   name  String
   role  Role   @default(STUDENT)
 
-  /// Links this row to the Supabase `auth.users` record.
-  supabaseUserId String? @unique
+  /// The identity provider's stable subject id (Google's `sub` claim).
+  /// Authentication is Google's job; this column only records which external
+  /// identity this row belongs to. Roles are never read from the provider.
+  authProviderId String? @unique
 
   isActive    Boolean   @default(true)
   lastLoginAt DateTime?
