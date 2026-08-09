@@ -439,27 +439,44 @@ into the Content Security Policy at build time, so adding it afterwards needs a
 redeploy to take effect. On Vercel, tick **Production, Preview and Development**;
 a Production-only variable is absent from preview builds.
 
-### If the build fails on configuration
+### Deploy first, configure after
 
-Every `NEXT_PUBLIC_*` variable has a default, so none of them can fail a build —
-that is deliberate, because the one prerendered page (`/_not-found`) imports the
-root layout, and anything required there fails the whole build with a message
-that names the page rather than the variable.
+**A missing environment variable never fails the build.** Push, let the host
+build once to get a URL, then fill in the variables — that order works.
 
-So a configuration failure is always a **server** variable. The error prints an
-`[env]` block listing which expected names the build could actually see:
+Configuration is validated at the point of use, not at import. An unconfigured
+deployment builds, deploys and serves every page; only the feature that needs a
+missing value fails, with a message naming the variable:
 
 ```
-[env] Invalid server environment configuration:
-  - SUPABASE_URL: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) must be a valid URL…
-
-[env] Variables visible to this build:
-  [set]     DATABASE_URL
-  [MISSING] SUPABASE_URL
-  [MISSING] NEXT_PUBLIC_SUPABASE_URL
+Configuration missing: SUPABASE_URL is required for file uploads and downloads.
+Set it in your hosting provider's environment variables and redeploy.
 ```
 
-Blank values count as absent, and values are trimmed — but a value wrapped in
+The build log also carries one warning listing everything still outstanding:
+
+```
+[env] The portal is running with incomplete configuration.
+  - SUPABASE_URL: not set — needed for file uploads and downloads
+```
+
+### Checking a live deployment
+
+`GET /api/health` reports what is still missing, without exposing any value:
+
+```json
+{
+  "status": "incomplete",
+  "configuration": ["SUPABASE_URL: not set — needed for file uploads and downloads"],
+  "database": { "ok": true, "detail": "connected" }
+}
+```
+
+Returns `200` when complete, `503` otherwise — so it doubles as an uptime probe.
+It is unauthenticated on purpose: it is most useful before anyone can sign in,
+and it returns only variable *names* and connectivity.
+
+Blank values count as absent and values are trimmed — but a value wrapped in
 quotes is taken literally and will fail a URL check. Paste raw values.
 
 ### Function limits

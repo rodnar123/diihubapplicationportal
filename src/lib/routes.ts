@@ -12,6 +12,8 @@ export const ROUTES = {
   /** NextAuth owns everything under this prefix. */
   authApi: "/api/auth",
   signOut: "/auth/sign-out",
+  /** Deployment diagnostics — reports missing configuration, no secrets. */
+  health: "/api/health",
   accessDenied: "/access-denied",
 
   onboarding: "/onboarding",
@@ -40,6 +42,7 @@ export const PUBLIC_PATHS = [
   ROUTES.authApi,
   ROUTES.signOut,
   ROUTES.accessDenied,
+  ROUTES.health,
 ] as const;
 
 /** Prefixes that require a valid session. */

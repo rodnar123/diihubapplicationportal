@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { serverEnv } from "@/lib/env.server";
+import { requireServerEnv } from "@/lib/env.server";
 
 /**
  * Supabase is used for **Storage only** — authentication is handled by
@@ -18,9 +18,11 @@ import { serverEnv } from "@/lib/env.server";
  * authorises the caller and then mints a short-lived signed URL.
  */
 export function createSupabaseAdminClient() {
+  // Checked here rather than at import: a portal with storage unconfigured
+  // still builds, deploys and serves every page that does not touch a file.
   return createClient(
-    serverEnv.SUPABASE_URL,
-    serverEnv.SUPABASE_SERVICE_ROLE_KEY,
+    requireServerEnv("SUPABASE_URL"),
+    requireServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {
       auth: {
         persistSession: false,

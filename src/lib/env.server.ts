@@ -5,6 +5,18 @@ import { z } from "zod";
 /**
  * Server-only configuration. The `server-only` import makes any attempt to
  * pull this module into a client bundle a build-time error.
+ *
+ * **Nothing here throws at import time, by design.** A common and reasonable
+ * deployment order is: push, let the host build once to obtain a URL, then
+ * fill in the environment variables. Validating at module load broke that —
+ * `next build` imports every route to collect page data, so one unset value
+ * failed the whole build before the operator ever reached the settings screen.
+ *
+ * Instead, values are parsed leniently here and checked at the point of use
+ * via {@link requireServerEnv}, which throws a message naming the variable and
+ * what it is for. The result: the build always succeeds, the app always
+ * deploys, and an unconfigured feature fails loudly — and only that feature —
+ * the first time somebody uses it.
  */
 
 const csv = z
@@ -17,26 +29,29 @@ const csv = z
       .filter(Boolean),
   );
 
+/**
+ * Deliberately permissive: shape is checked in `requireServerEnv`, not here,
+ * so that a malformed value cannot fail a build either.
+ */
 const serverSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  DATABASE_URL: z.string().optional(),
   DIRECT_URL: z.string().optional(),
 
   // --- Authentication (NextAuth + Google) ---------------------------------
-  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
-  AUTH_GOOGLE_ID: z.string().min(1, "AUTH_GOOGLE_ID is required"),
-  AUTH_GOOGLE_SECRET: z.string().min(1, "AUTH_GOOGLE_SECRET is required"),
+  AUTH_SECRET: z.string().optional(),
+  AUTH_GOOGLE_ID: z.string().optional(),
+  AUTH_GOOGLE_SECRET: z.string().optional(),
 
   // --- Storage -------------------------------------------------------------
   // Server-only despite the historical `NEXT_PUBLIC_` name: the bucket is
-  // private and reached solely through `/api/attachments/[id]`, so no browser
-  // code ever needs this. Either name is accepted — Vercel's Supabase
-  // integration injects `SUPABASE_URL`, while a hand-configured project
-  // usually has `NEXT_PUBLIC_SUPABASE_URL`.
-  SUPABASE_URL: z.url(
-    "SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) must be a valid URL, e.g. https://<project-ref>.supabase.co",
-  ),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  // private and files are reached only through `/api/attachments/[id]`, so no
+  // browser code needs this. Either spelling is accepted — Vercel's Supabase
+  // integration injects `SUPABASE_URL`.
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("application-attachments"),
+
+  // --- Everything below has a safe default ---------------------------------
   STAFF_EMAIL_DOMAIN: z.string().min(1).default("pnguot.ac.pg"),
   ADMIN_EMAIL_ALLOWLIST: csv,
   ADMIN_NOTIFICATION_EMAILS: csv,
@@ -56,53 +71,105 @@ const withoutBlanks = Object.fromEntries(
 
 const parsed = serverSchema.safeParse({
   ...withoutBlanks,
-  // Accept either spelling of the Supabase project URL.
   SUPABASE_URL: withoutBlanks.SUPABASE_URL ?? withoutBlanks.NEXT_PUBLIC_SUPABASE_URL,
 });
 
-if (!parsed.success) {
-  const issues = parsed.error.issues
-    .map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`)
-    .join("\n");
+// Even this cannot throw: on the (now very unlikely) parse failure we fall
+// back to defaults rather than taking the process down.
+export const serverEnv = parsed.success ? parsed.data : serverSchema.parse({});
 
-  // Which of the expected names the build environment can actually see.
-  // Names only — never values, since several of these are secrets.
-  const expected = [
-    "DATABASE_URL",
-    "DIRECT_URL",
-    "AUTH_SECRET",
-    "AUTH_GOOGLE_ID",
-    "AUTH_GOOGLE_SECRET",
-    "SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_STORAGE_BUCKET",
-  ];
-  const visibility = expected
-    .map((name) => `  ${withoutBlanks[name] ? "[set]    " : "[MISSING]"} ${name}`)
-    .join("\n");
+export const isProduction = process.env.NODE_ENV === "production";
 
-  // Printed as well as thrown: a thrown build-time error is rendered as a code
-  // frame, which can bury the message that names the offending variable.
-  console.error(
-    `\n[env] Invalid server environment configuration:\n${issues}\n\n[env] Variables visible to this build:\n${visibility}\n`,
-  );
+// ---------------------------------------------------------------------------
+// Point-of-use validation
+// ---------------------------------------------------------------------------
 
-  throw new Error(
+type RequiredKey =
+  | "DATABASE_URL"
+  | "AUTH_SECRET"
+  | "AUTH_GOOGLE_ID"
+  | "AUTH_GOOGLE_SECRET"
+  | "SUPABASE_URL"
+  | "SUPABASE_SERVICE_ROLE_KEY";
+
+interface Requirement {
+  /** What stops working without it, in words an operator can act on. */
+  purpose: string;
+  /** Extra shape check applied only when a value is present. */
+  check?: (value: string) => string | null;
+}
+
+const REQUIREMENTS: Record<RequiredKey, Requirement> = {
+  DATABASE_URL: {
+    purpose: "the database connection",
+    check: (v) =>
+      v.startsWith("postgres://") || v.startsWith("postgresql://")
+        ? null
+        : "must be a postgresql:// connection string",
+  },
+  AUTH_SECRET: {
+    purpose: "signing sign-in sessions",
+    check: (v) => (v.length >= 32 ? null : "must be at least 32 characters (npx auth secret)"),
+  },
+  AUTH_GOOGLE_ID: { purpose: "Google sign-in" },
+  AUTH_GOOGLE_SECRET: { purpose: "Google sign-in" },
+  SUPABASE_URL: {
+    purpose: "file uploads and downloads",
+    check: (v) =>
+      /^https?:\/\//.test(v) ? null : "must be a URL like https://<project-ref>.supabase.co",
+  },
+  SUPABASE_SERVICE_ROLE_KEY: { purpose: "file uploads and downloads" },
+};
+
+export const REQUIRED_SERVER_ENV = Object.keys(REQUIREMENTS) as RequiredKey[];
+
+/**
+ * Reads a value that the calling feature cannot work without.
+ *
+ * Throws only when that feature is actually exercised, so an unconfigured
+ * portal still builds, deploys and serves every page that does not depend on
+ * the missing value.
+ */
+export function requireServerEnv(key: RequiredKey): string {
+  const value = serverEnv[key];
+  const requirement = REQUIREMENTS[key];
+
+  if (!value) {
+    throw new Error(
+      `Configuration missing: ${key} is required for ${requirement.purpose}. ` +
+        `Set it in your hosting provider's environment variables and redeploy.`,
+    );
+  }
+
+  const problem = requirement.check?.(value);
+  if (problem) {
+    throw new Error(`Configuration invalid: ${key} ${problem}.`);
+  }
+
+  return value;
+}
+
+/** Required variables that are absent or malformed. Used for diagnostics. */
+export function missingServerEnv(): Array<{ key: RequiredKey; reason: string }> {
+  return REQUIRED_SERVER_ENV.flatMap((key) => {
+    const value = serverEnv[key];
+    if (!value) return [{ key, reason: `not set — needed for ${REQUIREMENTS[key].purpose}` }];
+    const problem = REQUIREMENTS[key].check?.(value);
+    return problem ? [{ key, reason: problem }] : [];
+  });
+}
+
+// A single, quiet warning so an unconfigured deployment is obvious in the
+// runtime logs without failing anything.
+const missingAtStartup = missingServerEnv();
+if (missingAtStartup.length > 0) {
+  console.warn(
     [
-      "Invalid server environment configuration:",
-      issues,
       "",
-      "Variables visible to this build:",
-      visibility,
+      "[env] The portal is running with incomplete configuration.",
+      ...missingAtStartup.map((entry) => `  - ${entry.key}: ${entry.reason}`),
+      "  Features that need these will report an error until they are set.",
       "",
-      "Set the missing values in your hosting provider and redeploy.",
-      "Paste the raw value — do not wrap it in quotes.",
-      "On Vercel, tick Production, Preview and Development so previews build too.",
     ].join("\n"),
   );
 }
-
-export const serverEnv = parsed.data;
-
-export const isProduction = serverEnv.NODE_ENV === "production";
