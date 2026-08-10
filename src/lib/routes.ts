@@ -23,6 +23,8 @@ export const ROUTES = {
   applicationStep: (step: string) => `/application/${step}`,
   applicationReview: "/application/review",
   applicationPdf: (id: string) => `/api/applications/${id}/pdf`,
+  applicationDeclarationPdf: (id: string) => `/api/applications/${id}/declaration`,
+  attachmentDownload: (id: string) => `/api/attachments/${id}`,
 
   admin: "/admin",
   adminApplications: "/admin/applications",

@@ -1,6 +1,7 @@
 import { Paperclip } from "lucide-react";
 
-import { AttachmentList, formatBytes } from "@/components/application/attachment-list";
+import { AttachmentList } from "@/components/application/attachment-list";
+import { formatBytes } from "@/lib/format";
 import { RichTextView } from "@/components/application/rich-text-view";
 import { EmptyState } from "@/components/layout/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +73,7 @@ export function ApplicationSummary({
   schoolName,
   sectionName,
   sectionNameById,
-  downloadHrefFor,
+  allowDownload = false,
   showAttachments = true,
 }: {
   application: ApplicationDto;
@@ -80,7 +81,15 @@ export function ApplicationSummary({
   schoolName: string | null;
   sectionName: string | null;
   sectionNameById: Record<string, string>;
-  downloadHrefFor?: (attachmentId: string) => string;
+  /**
+   * Render attachments as interactive download links. Off for the print
+   * layout, where a clickable list is meaningless on paper.
+   *
+   * A boolean rather than a URL-builder function: this is a Server Component,
+   * and functions cannot be handed to the Client Component that renders the
+   * list.
+   */
+  allowDownload?: boolean;
   showAttachments?: boolean;
 }) {
   const team = application.team;
@@ -339,12 +348,8 @@ export function ApplicationSummary({
           <Separator />
 
           <Section title="Attachments" formSection="Section G">
-            {downloadHrefFor ? (
-              <AttachmentList
-                attachments={supportingFiles}
-                canDelete={false}
-                downloadHrefFor={downloadHrefFor}
-              />
+            {allowDownload ? (
+              <AttachmentList attachments={supportingFiles} canDelete={false} />
             ) : supportingFiles.length === 0 ? (
               <EmptyState icon={Paperclip} title="No files uploaded" />
             ) : (
@@ -398,12 +403,8 @@ export function ApplicationSummary({
               <div className="sm:col-span-3">
                 <dt className="text-xs font-medium text-muted-foreground">Signed document</dt>
                 <dd className="mt-1">
-                  {downloadHrefFor && signedDeclarationFiles.length > 0 ? (
-                    <AttachmentList
-                      attachments={signedDeclarationFiles}
-                      canDelete={false}
-                      downloadHrefFor={downloadHrefFor}
-                    />
+                  {allowDownload && signedDeclarationFiles.length > 0 ? (
+                    <AttachmentList attachments={signedDeclarationFiles} canDelete={false} />
                   ) : (
                     <p className="text-sm">{declaration.signedDocumentName ?? "—"}</p>
                   )}

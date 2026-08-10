@@ -206,7 +206,6 @@ export function DeclarationStep({
             <AttachmentList
               attachments={signedDeclarations}
               canDelete={!readOnly}
-              downloadHrefFor={(id) => `/api/attachments/${id}`}
               emptyDescription="Upload the signed declaration to continue."
             />
           )}

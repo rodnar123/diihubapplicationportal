@@ -16,7 +16,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import type { NavGroup } from "@/components/layout/nav-config";
+import { NAV_ICONS, type NavGroup } from "@/components/layout/nav-config";
 
 /**
  * Keyboard-first navigation (⌘K / Ctrl+K).
@@ -83,19 +83,22 @@ export function CommandPalette({
 
             return (
               <CommandGroup key={group.label} heading={group.label}>
-                {items.map((item) => (
+                {items.map((item) => {
+                  const Icon = NAV_ICONS[item.icon];
+                  return (
                   <CommandItem
                     key={item.href}
                     value={`${item.label} ${item.description}`}
                     onSelect={() => run(() => router.push(item.href))}
                   >
-                    <item.icon className="size-4" aria-hidden />
+                    <Icon className="size-4" aria-hidden />
                     <span className="flex-1">{item.label}</span>
                     <span className="hidden max-w-64 truncate text-xs text-muted-foreground sm:inline">
                       {item.description}
                     </span>
                   </CommandItem>
-                ))}
+                  );
+                })}
               </CommandGroup>
             );
           })}

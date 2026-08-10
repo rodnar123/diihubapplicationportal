@@ -192,7 +192,7 @@ export default async function ApplicationStepPage({
               sectionNameById={Object.fromEntries(
                 [...sectionLookup.entries()].map(([id, value]) => [id, value.name]),
               )}
-              downloadHrefFor={(id) => `/api/attachments/${id}`}
+              allowDownload
             />
           </div>
         );

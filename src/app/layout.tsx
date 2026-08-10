@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { CHALLENGE_HOST, CHALLENGE_NAME, UNIVERSITY_NAME } from "@/domain/challenge/constants";
 import { APP_NAME, APP_URL } from "@/lib/env";
 
@@ -61,8 +62,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors closeButton position="top-right" />
+          {/*
+            Required by the collapsed sidebar, whose menu buttons render a
+            tooltip. Radix's Tooltip throws rather than degrading when no
+            provider is in scope, so this has to sit above every route that
+            uses the app shell — which is all of them.
+          */}
+          <TooltipProvider delayDuration={300}>
+            {children}
+            <Toaster richColors closeButton position="top-right" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

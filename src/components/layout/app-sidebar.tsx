@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { BrandLockup } from "@/components/brand/university-mark";
-import type { NavGroup } from "@/components/layout/nav-config";
+import { NAV_ICONS, type NavGroup } from "@/components/layout/nav-config";
 import {
   Sidebar,
   SidebarContent,
@@ -62,6 +62,9 @@ export function AppSidebar({
                 <SidebarMenu>
                   {items.map((item) => {
                     const active = isActive(pathname, item.href, item.matchPrefix);
+                    // Resolved here, on the client — the icon arrives as a name.
+                    const Icon = NAV_ICONS[item.icon];
+
                     return (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
@@ -71,7 +74,7 @@ export function AppSidebar({
                           onClick={() => setOpenMobile(false)}
                         >
                           <Link href={item.href} aria-current={active ? "page" : undefined}>
-                            <item.icon aria-hidden />
+                            <Icon aria-hidden />
                             <span>{item.label}</span>
                           </Link>
                         </SidebarMenuButton>

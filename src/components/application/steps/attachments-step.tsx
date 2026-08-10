@@ -85,7 +85,6 @@ export function AttachmentsStep({
         <AttachmentList
           attachments={supporting}
           canDelete={!readOnly}
-          downloadHrefFor={(id) => `/api/attachments/${id}`}
         />
       </div>
 

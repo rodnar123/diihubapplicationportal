@@ -26,13 +26,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { AttachmentDto } from "@/domain/application/types";
+import { formatBytes } from "@/lib/format";
+import { ROUTES } from "@/lib/routes";
 import { deleteAttachmentAction } from "@/app/(student)/application/actions";
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 export function fileIconFor(mimeType: string): LucideIcon {
   if (mimeType.startsWith("image/")) return FileImage;
@@ -41,18 +37,20 @@ export function fileIconFor(mimeType: string): LucideIcon {
 }
 
 /**
- * The uploaded-files list. `onDelete` is omitted once the application is
+ * The uploaded-files list. `canDelete` is false once the application is
  * locked, which also removes the confirmation dialog entirely.
+ *
+ * The download URL is built here rather than taken as a prop: a function prop
+ * cannot cross the Server→Client boundary, and every caller wanted the same
+ * route anyway.
  */
 export function AttachmentList({
   attachments,
   canDelete,
-  downloadHrefFor,
   emptyDescription = "Add supporting documents, prototype screenshots or a demonstration package.",
 }: {
   attachments: AttachmentDto[];
   canDelete: boolean;
-  downloadHrefFor: (attachmentId: string) => string;
   emptyDescription?: string;
 }) {
   const [pendingDelete, setPendingDelete] = useState<AttachmentDto | null>(null);
@@ -100,7 +98,7 @@ export function AttachmentList({
               </div>
 
               <Button asChild variant="ghost" size="icon" className="shrink-0">
-                <a href={downloadHrefFor(attachment.id)} download>
+                <a href={ROUTES.attachmentDownload(attachment.id)} download>
                   <Download className="size-4" aria-hidden />
                   <span className="sr-only">Download {attachment.fileName}</span>
                 </a>

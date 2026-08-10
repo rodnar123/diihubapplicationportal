@@ -115,7 +115,7 @@ export default async function AdminApplicationDetailPage({
               schoolName={schoolName}
               sectionName={sectionName}
               sectionNameById={sectionNameById}
-              downloadHrefFor={(attachmentId) => `/api/attachments/${attachmentId}`}
+              allowDownload
             />
           </CardContent>
         </Card>
