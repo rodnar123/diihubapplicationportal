@@ -54,7 +54,12 @@ export function NotificationBell({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        {/* Also on the maroon header — same treatment as the sidebar's items. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="on-brand-control relative"
+        >
           <Bell className="size-4" aria-hidden />
           {unreadCount > 0 && (
             <Badge

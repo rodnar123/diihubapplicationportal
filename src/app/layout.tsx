@@ -33,10 +33,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/*
+ * The browser chrome (Android address bar, iOS status bar, Windows title bar)
+ * is tinted to the top of the app's own gradient, so the frame around the page
+ * continues the maroon rather than cutting it off with a grey band. The values
+ * are the first stops of `--gradient-brand` in `globals.css`; keep them in step.
+ */
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#14171f" },
+    { media: "(prefers-color-scheme: light)", color: "#5c0022" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1418" },
   ],
 };
 

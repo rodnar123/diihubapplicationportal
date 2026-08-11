@@ -54,15 +54,18 @@ export function CommandPalette({
 
   return (
     <>
+      {/* Sits on the maroon header. `.on-brand-control` is the same hover and
+          gold focus ring the sidebar's items use, so the two bars match; the
+          gold hairline round the shortcut key echoes the one under the bar. */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="gap-2 text-muted-foreground"
+        className="on-brand-control border-gold-hairline gap-2 bg-white/10 hover:bg-white/20"
       >
         <Search className="size-4" aria-hidden />
         <span className="hidden sm:inline">Search…</span>
-        <kbd className="hidden rounded border bg-muted px-1.5 font-mono text-[10px] sm:inline">
+        <kbd className="border-gold-hairline hidden rounded border bg-white/10 px-1.5 font-mono text-[10px] sm:inline">
           ⌘K
         </kbd>
       </Button>

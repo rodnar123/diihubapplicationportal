@@ -51,7 +51,7 @@ export default async function PrintApplicationPage({
 
       <header className="mb-8 border-b-2 border-primary pb-4">
         <div className="flex items-center gap-4">
-          <UniversityCrest className="size-12 text-primary" />
+          <UniversityCrest size={52} />
           <div>
             <p className="text-base font-semibold text-primary">{UNIVERSITY_NAME}</p>
             <p className="text-sm text-muted-foreground">{CHALLENGE_HOST}</p>

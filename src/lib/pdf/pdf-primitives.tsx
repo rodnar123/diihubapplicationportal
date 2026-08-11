@@ -1,4 +1,7 @@
-import { Text, View } from "@react-pdf/renderer";
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+import { Image, Text, View } from "@react-pdf/renderer";
 
 import { parseRichText, type InlineRun } from "@/lib/pdf/parse-rich-text";
 import { PDF_COLORS, pdfStyles } from "@/lib/pdf/pdf-styles";
@@ -182,15 +185,26 @@ export function SignatureLine({
 }
 
 /**
- * Placeholder crest. Swap for an `<Image src="…" />` once the university
- * supplies the artwork; nothing else in the document needs to change.
+ * The university crest, read from `public/logo.png` at render time.
+ *
+ * React-PDF resolves a filesystem path, not a URL, so the path is built from
+ * `process.cwd()` — which is the project root both in `next dev` and in a
+ * deployed server. If the file is somehow missing the document still renders,
+ * with a lettermark in its place, because a failed export is a worse outcome
+ * than a missing logo.
  */
 export function Crest() {
-  return (
-    <View style={pdfStyles.crestFallback}>
-      <Text style={pdfStyles.crestFallbackText}>UoT</Text>
-    </View>
-  );
+  const logoPath = path.join(process.cwd(), "public", "logo.png");
+
+  if (!existsSync(logoPath)) {
+    return (
+      <View style={pdfStyles.crestFallback}>
+        <Text style={pdfStyles.crestFallbackText}>UoT</Text>
+      </View>
+    );
+  }
+
+  return <Image src={logoPath} style={pdfStyles.crest} />;
 }
 
 export function PageFooter({ reference }: { reference: string }) {

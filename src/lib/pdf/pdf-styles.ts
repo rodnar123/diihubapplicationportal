@@ -11,16 +11,21 @@ import { StyleSheet } from "@react-pdf/renderer";
  * renderer does not understand CSS custom properties or modern colour spaces.
  */
 
+/**
+ * Print palette. Maroon and gold are the crest's own colours; the gold is
+ * darkened from the on-screen value because bright yellow on white paper is
+ * close to invisible.
+ */
 export const PDF_COLORS = {
-  ink: "#111827",
-  body: "#1f2937",
-  muted: "#6b7280",
-  faint: "#9ca3af",
-  border: "#d1d5db",
-  borderStrong: "#9ca3af",
-  surface: "#f3f4f6",
-  navy: "#0f3b6e",
-  gold: "#c8901a",
+  ink: "#1a1416",
+  body: "#2b2126",
+  muted: "#6b5860",
+  faint: "#9c8891",
+  border: "#ddd0d5",
+  borderStrong: "#b9a4ac",
+  surface: "#f7f1f3",
+  maroon: "#800030",
+  gold: "#8a6a00",
   white: "#ffffff",
 } as const;
 
@@ -41,7 +46,7 @@ export const pdfStyles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderBottomWidth: 2,
-    borderBottomColor: PDF_COLORS.navy,
+    borderBottomColor: PDF_COLORS.maroon,
     paddingBottom: 10,
     marginBottom: 4,
   },
@@ -53,7 +58,7 @@ export const pdfStyles = StyleSheet.create({
     width: 42,
     height: 42,
     borderWidth: 1.5,
-    borderColor: PDF_COLORS.navy,
+    borderColor: PDF_COLORS.maroon,
     borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
@@ -61,13 +66,13 @@ export const pdfStyles = StyleSheet.create({
   crestFallbackText: {
     fontFamily: "Helvetica-Bold",
     fontSize: 11,
-    color: PDF_COLORS.navy,
+    color: PDF_COLORS.maroon,
   },
   mastheadText: { flex: 1 },
   university: {
     fontFamily: "Helvetica-Bold",
     fontSize: 12,
-    color: PDF_COLORS.navy,
+    color: PDF_COLORS.maroon,
   },
   host: {
     fontSize: 8.5,
@@ -115,7 +120,7 @@ export const pdfStyles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 10.5,
     color: PDF_COLORS.white,
-    backgroundColor: PDF_COLORS.navy,
+    backgroundColor: PDF_COLORS.maroon,
     paddingVertical: 3.5,
     paddingHorizontal: 7,
     marginBottom: 8,
@@ -259,7 +264,9 @@ export const pdfStyles = StyleSheet.create({
     textAlign: "center",
     fontFamily: "Helvetica-Bold",
     fontSize: 62,
-    color: "#f1f5f9",
+    // A maroon so pale it reads as a tint — the last cool grey in the print
+    // palette, which sat oddly against the warm surface it overlays.
+    color: "#f4ecef",
     transform: "rotate(-28deg)",
   },
 });

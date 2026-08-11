@@ -1,74 +1,91 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 import { CHALLENGE_NAME, UNIVERSITY_NAME, UNIVERSITY_SHORT_NAME } from "@/domain/challenge/constants";
 
 /**
- * Placeholder for the official PNGUoT crest.
+ * The university crest.
  *
- * Drop the real artwork in `public/university-crest.svg` and swap the `<svg>`
- * below for an `<Image>`; nothing else needs to change. It is drawn rather
- * than imported so the portal ships without depending on an asset the
- * university has not supplied yet.
+ * `public/logo.png` is generated from the supplied `logo.jfif` by
+ * `npm run brand:icons`; edit the original, not the output. Its ground is
+ * transparent, but the mark itself is maroon outlined in black, so it still
+ * needs the white tile below to stay legible against the maroon sidebar — the
+ * tile is what carries the rounding and the hairline ring, not the file.
+ *
+ * `priority` is set because the crest is in the header of every page and is
+ * part of the first meaningful paint.
  */
-export function UniversityCrest({ className }: { className?: string }) {
+export function UniversityCrest({
+  className,
+  size = 36,
+}: {
+  className?: string;
+  size?: number;
+}) {
   return (
-    <svg
-      viewBox="0 0 48 48"
-      role="img"
-      aria-label={`${UNIVERSITY_SHORT_NAME} crest`}
-      className={cn("size-10 shrink-0", className)}
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-black/10",
+        className,
+      )}
+      style={{ width: size, height: size }}
     >
-      <defs>
-        <linearGradient id="crest-shield" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.72" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M24 2.5 42 8v16.5c0 9.9-7.1 17.6-18 21.1C13.1 42.1 6 34.4 6 24.5V8L24 2.5Z"
-        fill="url(#crest-shield)"
+      <Image
+        src="/logo.png"
+        alt={`${UNIVERSITY_SHORT_NAME} crest`}
+        width={size}
+        height={size}
+        priority
+        className="size-full object-contain"
       />
-      <path
-        d="M24 2.5 42 8v16.5c0 9.9-7.1 17.6-18 21.1C13.1 42.1 6 34.4 6 24.5V8L24 2.5Z"
-        fill="none"
-        stroke="var(--brand)"
-        strokeWidth="1.5"
-      />
-      {/* Open book — teaching and research. */}
-      <path
-        d="M13.5 20.5c3.6-1.5 7.1-1.5 10.5 0 3.4-1.5 6.9-1.5 10.5 0v10c-3.6-1.5-7.1-1.5-10.5 0-3.4-1.5-6.9-1.5-10.5 0v-10Z"
-        fill="var(--brand)"
-        fillOpacity="0.9"
-      />
-      <path d="M24 20.5v10" stroke="currentColor" strokeWidth="1.2" strokeOpacity="0.5" />
-      {/* Gear tooth motif — technology. */}
-      <circle cx="24" cy="13" r="3.6" fill="none" stroke="var(--brand)" strokeWidth="1.6" />
-      <circle cx="24" cy="13" r="1.1" fill="var(--brand)" />
-    </svg>
+    </span>
   );
 }
 
 /**
- * Crest plus wordmark. `compact` drops the second line for tight spaces such
- * as the mobile header.
+ * Crest plus wordmark.
+ *
+ * The text block is `min-w-0` with truncating children so a long university
+ * name cannot push the lockup past its container — which is what made the
+ * sidebar header overflow. `compact` drops the second line for tight spaces.
  */
 export function BrandLockup({
   className,
   compact = false,
   subtitle = CHALLENGE_NAME,
+  title = UNIVERSITY_NAME,
+  size = 36,
+  tone = "default",
 }: {
   className?: string;
   compact?: boolean;
   subtitle?: string;
+  title?: string;
+  size?: number;
+  /** `onDark` inverts the text for the maroon sidebar. */
+  tone?: "default" | "onDark";
 }) {
   return (
-    <span className={cn("flex items-center gap-3", className)}>
-      <UniversityCrest className="size-9 text-primary" />
+    <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
+      <UniversityCrest size={size} />
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-sm font-semibold tracking-tight">
-          {compact ? UNIVERSITY_SHORT_NAME : UNIVERSITY_NAME}
+        <span
+          className={cn(
+            "truncate text-sm font-semibold tracking-tight",
+            tone === "onDark" && "text-sidebar-foreground",
+          )}
+        >
+          {compact ? UNIVERSITY_SHORT_NAME : title}
         </span>
         {!compact && (
-          <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
+          <span
+            className={cn(
+              "truncate text-xs",
+              tone === "onDark" ? "text-sidebar-foreground/70" : "text-muted-foreground",
+            )}
+          >
+            {subtitle}
+          </span>
         )}
       </span>
     </span>

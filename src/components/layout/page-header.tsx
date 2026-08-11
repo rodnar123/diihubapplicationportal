@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 
 import {
@@ -41,18 +42,22 @@ export function PageHeader({
             {breadcrumbs.map((crumb, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return (
-                <BreadcrumbItem key={`${crumb.label}-${index}`}>
-                  {isLast || !crumb.href ? (
-                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                  ) : (
-                    <>
+                // The separator is a sibling of the item, not a child of it:
+                // both render an <li>, and an <li> inside an <li> is invalid
+                // HTML, which the browser silently reparents — producing a
+                // hydration mismatch on every page that has a breadcrumb.
+                <Fragment key={`${crumb.label}-${index}`}>
+                  <BreadcrumbItem>
+                    {isLast || !crumb.href ? (
+                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                    ) : (
                       <BreadcrumbLink asChild>
                         <Link href={crumb.href}>{crumb.label}</Link>
                       </BreadcrumbLink>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                </BreadcrumbItem>
+                    )}
+                  </BreadcrumbItem>
+                  {!isLast && crumb.href && <BreadcrumbSeparator />}
+                </Fragment>
               );
             })}
           </BreadcrumbList>
