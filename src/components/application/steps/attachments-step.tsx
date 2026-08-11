@@ -11,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AttachmentKind } from "@/generated/prisma/enums";
 import type { ApplicationDto } from "@/domain/application/types";
-import { ROUTES } from "@/lib/routes";
 
 /**
  * Attachments are optional, so this step has no form and no validation — just

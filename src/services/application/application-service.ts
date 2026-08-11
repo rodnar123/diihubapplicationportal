@@ -10,7 +10,7 @@ import type { ApplicationDto, ApplicationWithApplicant } from "@/domain/applicat
 import { REFERENCE_PREFIX } from "@/domain/challenge/constants";
 import { submissionWindow, type AppSettings } from "@/domain/settings/app-settings";
 import type { SessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db/prisma";
+import { prisma, type DbTransactionClient } from "@/lib/db/prisma";
 import { AppError, conflict, forbidden, invalidState, notFound } from "@/lib/errors";
 import { AUDIT_ACTIONS, recordAudit, requestContext } from "@/services/audit/audit-log";
 import { getAppSettings } from "@/services/settings/settings-service";
@@ -463,7 +463,7 @@ export async function saveDeclaration(
  * a second attempt rather than an error.
  */
 async function allocateReferenceNumber(
-  tx: Prisma.TransactionClient,
+  tx: DbTransactionClient,
   challengeYear: number,
 ): Promise<string> {
   const prefix = `${REFERENCE_PREFIX}-${challengeYear}-`;

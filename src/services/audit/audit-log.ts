@@ -3,7 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/db/prisma";
+import { prisma, type DbTransactionClient } from "@/lib/db/prisma";
 
 /**
  * Append-only audit trail.
@@ -90,7 +90,7 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
  * together with the change it describes.
  */
 export async function recordAuditTx(
-  tx: Prisma.TransactionClient,
+  tx: DbTransactionClient,
   entry: AuditEntry & { ipAddress?: string | null; userAgent?: string | null },
 ): Promise<void> {
   await tx.auditLog.create({

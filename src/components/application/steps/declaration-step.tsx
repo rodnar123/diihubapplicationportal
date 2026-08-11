@@ -24,7 +24,6 @@ import { CHALLENGE_HOST, CHALLENGE_NAME } from "@/domain/challenge/constants";
 import type { DeclarationModeSetting } from "@/domain/settings/app-settings";
 import type { ApplicantDto, ApplicationDto } from "@/domain/application/types";
 import { applyFieldErrors } from "@/lib/form-errors";
-import { ROUTES } from "@/lib/routes";
 import { saveDeclarationStep } from "@/app/(student)/application/actions";
 
 /**
