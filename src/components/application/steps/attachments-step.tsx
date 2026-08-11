@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 
 import { AttachmentList } from "@/components/application/attachment-list";
 import { FileUploader } from "@/components/application/file-uploader";
+import { useExitHref } from "@/components/application/use-exit-href";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AttachmentKind } from "@/generated/prisma/enums";
@@ -36,6 +37,7 @@ export function AttachmentsStep({
   nextHref: string | null;
 }) {
   const router = useRouter();
+  const exit = useExitHref();
 
   // The signed declaration is managed on its own step; don't duplicate it here.
   const supporting = application.attachments.filter(
@@ -102,7 +104,7 @@ export function AttachmentsStep({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost">
-            <Link href={ROUTES.dashboard}>Finish later</Link>
+            <Link href={exit.href}>{readOnly ? exit.label : "Finish later"}</Link>
           </Button>
           {nextHref && (
             <Button asChild>

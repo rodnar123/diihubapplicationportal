@@ -10,6 +10,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Download, FileSignature, Loader2 } 
 
 import { AttachmentList } from "@/components/application/attachment-list";
 import { FileUploader } from "@/components/application/file-uploader";
+import { useExitHref } from "@/components/application/use-exit-href";
 import { FormRow } from "@/components/forms/form-row";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ export function DeclarationStep({
   nextHref: string | null;
 }) {
   const router = useRouter();
+  const exit = useExitHref();
   const [isPending, startTransition] = useTransition();
 
   const existing = application.declaration;
@@ -292,7 +294,7 @@ export function DeclarationStep({
 
         {readOnly ? (
           <Button asChild variant="outline">
-            <Link href={ROUTES.dashboard}>Return to dashboard</Link>
+            <Link href={exit.href}>{exit.label}</Link>
           </Button>
         ) : (
           <Button type="submit" disabled={isPending}>

@@ -32,6 +32,13 @@ export const ROUTES = {
   adminApplicationPrint: (id: string) => `/admin/applications/${id}/print`,
   adminSettings: "/admin/settings",
   adminAudit: "/admin/audit",
+  /**
+   * The student portal as staff see it: the real dashboard and the real wizard,
+   * rendered read-only from a blank in-memory entry. Under `/admin` on purpose,
+   * so the reviewer guard on that tree covers it without a rule of its own.
+   */
+  adminPreview: "/admin/preview",
+  adminPreviewStep: (step: string) => `/admin/preview/${step}`,
   adminExportCsv: "/api/admin/applications/export",
   adminExportPdf: "/api/admin/applications/export-pdf",
 } as const;

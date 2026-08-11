@@ -20,10 +20,17 @@ export function StepProgress({
   steps,
   percentComplete,
   canSubmit,
+  basePath = ROUTES.application,
 }: {
   steps: StepStatus[];
   percentComplete: number;
   canSubmit: boolean;
+  /**
+   * Where the rail's links point. A string, not a builder function: this is a
+   * Client Component, and a function cannot cross that boundary. The staff
+   * preview passes its own base so the rail keeps them inside `/admin`.
+   */
+  basePath?: string;
 }) {
   const pathname = usePathname();
   const statusBySlug = new Map(steps.map((step) => [step.slug, step]));
@@ -43,7 +50,7 @@ export function StepProgress({
 
       <ol className="space-y-0.5">
         {APPLICATION_STEPS.map((step, index) => {
-          const href = ROUTES.applicationStep(step.slug);
+          const href = `${basePath}/${step.slug}`;
           const isActive = pathname === href;
           const status = statusBySlug.get(step.slug);
           const isReview = step.slug === "review";

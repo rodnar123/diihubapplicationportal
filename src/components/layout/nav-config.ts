@@ -1,4 +1,5 @@
 import {
+  Eye,
   FileText,
   LayoutDashboard,
   ListChecks,
@@ -26,7 +27,8 @@ export type NavIconName =
   | "application"
   | "applications"
   | "settings"
-  | "audit";
+  | "audit"
+  | "preview";
 
 /**
  * Name → component. Safe to import anywhere; only ever *dereferenced* inside a
@@ -38,6 +40,7 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   applications: ListChecks,
   settings: Settings,
   audit: ScrollText,
+  preview: Eye,
 };
 
 export interface NavItem {
@@ -93,6 +96,13 @@ export const ADMIN_NAV: NavGroup[] = [
         href: ROUTES.adminApplications,
         icon: "applications",
         description: "Search, filter, review and export submissions",
+        matchPrefix: true,
+      },
+      {
+        label: "Student portal",
+        href: ROUTES.adminPreview,
+        icon: "preview",
+        description: "Preview the form and dashboard as an applicant sees them",
         matchPrefix: true,
       },
     ],

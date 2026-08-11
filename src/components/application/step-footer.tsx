@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, CloudOff, Loader2, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/lib/routes";
 import type { AutosaveState } from "./use-step-form";
+import { useExitHref } from "./use-exit-href";
 
 function AutosaveIndicator({ state, savedAt }: { state: AutosaveState; savedAt: Date | null }) {
   const time = savedAt?.toLocaleTimeString(undefined, {
@@ -71,6 +71,8 @@ export function StepFooter({
   isLastEditableStep?: boolean;
   readOnly?: boolean;
 }) {
+  const exit = useExitHref();
+
   if (readOnly) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-6">
@@ -85,7 +87,7 @@ export function StepFooter({
           <span />
         )}
         <Button asChild variant="outline">
-          <Link href={ROUTES.dashboard}>Return to dashboard</Link>
+          <Link href={exit.href}>{exit.label}</Link>
         </Button>
       </div>
     );
