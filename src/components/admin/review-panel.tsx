@@ -16,6 +16,7 @@ import { decisionSchema, type DecisionInput } from "@/domain/application/schemas
 import { allowedTransitions } from "@/domain/application/status";
 import { ApplicationStatus, type Role } from "@/generated/prisma/enums";
 import { applyFieldErrors } from "@/lib/form-errors";
+import { callAction } from "@/lib/client-action";
 import { recordDecisionAction } from "@/app/(admin)/admin/actions";
 
 /**
@@ -86,7 +87,7 @@ export function ReviewPanel({
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
-      const result = await recordDecisionAction({ applicationId, values });
+      const result = await callAction(() => recordDecisionAction({ applicationId, values }));
 
       if (!result.ok) {
         applyFieldErrors(form, result.fieldErrors, result.message);

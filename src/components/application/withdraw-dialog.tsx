@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { callAction } from "@/lib/client-action";
 import { withdrawApplicationAction } from "@/app/(student)/application/actions";
 
 /**
@@ -35,7 +36,9 @@ export function WithdrawApplicationDialog({ applicationId }: { applicationId: st
     setError(null);
 
     startTransition(async () => {
-      const result = await withdrawApplicationAction({ applicationId, reason });
+      const result = await callAction(() =>
+        withdrawApplicationAction({ applicationId, reason }),
+      );
 
       if (!result.ok) {
         setError(result.fieldErrors?.form?.[0] ?? result.message);

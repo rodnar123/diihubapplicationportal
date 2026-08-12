@@ -25,6 +25,7 @@ import {
   type StudentProfileInput,
 } from "@/domain/application/schemas";
 import { YEAR_LEVEL_OPTIONS } from "@/domain/challenge/constants";
+import { callAction } from "@/lib/client-action";
 import { applyFieldErrors } from "@/lib/form-errors";
 import type { SchoolOption } from "@/services/reference/reference-data";
 import { saveStudentProfile } from "./actions";
@@ -60,7 +61,7 @@ export function OnboardingForm({
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
-      const result = await saveStudentProfile(values);
+      const result = await callAction(() => saveStudentProfile(values));
 
       if (!result.ok) {
         applyFieldErrors(form, result.fieldErrors);

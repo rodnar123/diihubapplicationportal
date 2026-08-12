@@ -25,6 +25,7 @@ import {
   MIME_EXTENSIONS,
   type AppSettings,
 } from "@/domain/settings/app-settings";
+import { callAction } from "@/lib/client-action";
 import { updateSettingsAction } from "@/app/(admin)/admin/actions";
 
 /**
@@ -91,7 +92,7 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await updateSettingsAction(values);
+      const result = await callAction(() => updateSettingsAction(values));
 
       if (!result.ok) {
         setFieldErrors(result.fieldErrors ?? {});

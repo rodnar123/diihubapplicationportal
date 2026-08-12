@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { AttachmentDto } from "@/domain/application/types";
+import { callAction } from "@/lib/client-action";
 import { formatBytes } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { deleteAttachmentAction } from "@/app/(student)/application/actions";
@@ -65,7 +66,7 @@ export function AttachmentList({
     const target = pendingDelete;
 
     startDelete(async () => {
-      const result = await deleteAttachmentAction(target.id);
+      const result = await callAction(() => deleteAttachmentAction(target.id));
       if (result.ok) {
         toast.success(`"${target.fileName}" was removed.`);
         setPendingDelete(null);

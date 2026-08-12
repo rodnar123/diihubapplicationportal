@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { callAction } from "@/lib/client-action";
 import { markNotificationsReadAction } from "@/app/notifications-actions";
 
 export interface NotificationItem {
@@ -46,7 +47,8 @@ export function NotificationBell({
 
   const markAllRead = () => {
     startTransition(async () => {
-      await markNotificationsReadAction();
+      // Marking as read is incidental; a failure must not take the page down.
+      await callAction(() => markNotificationsReadAction());
       router.refresh();
     });
   };

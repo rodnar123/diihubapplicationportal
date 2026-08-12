@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { AttachmentKind } from "@/generated/prisma/enums";
 import { uploadAttachmentAction } from "@/app/(student)/application/actions";
+import { callAction } from "@/lib/client-action";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,7 +70,7 @@ export function FileUploader({
         formData.set("file", file);
         if (kind) formData.set("kind", kind);
 
-        const result = await uploadAttachmentAction(formData);
+        const result = await callAction(() => uploadAttachmentAction(formData));
 
         if (result.ok) {
           succeeded += 1;

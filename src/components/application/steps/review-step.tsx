@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { CompletenessReport } from "@/domain/application/completeness";
 import { APPLICATION_STEPS, type ApplicationStepSlug } from "@/domain/application/steps";
+import { callAction } from "@/lib/client-action";
 import { ROUTES } from "@/lib/routes";
 import { submitApplicationAction } from "@/app/(student)/application/actions";
 
@@ -54,7 +55,7 @@ export function ReviewSubmitPanel({
 
   const submit = () => {
     startTransition(async () => {
-      const result = await submitApplicationAction(applicationId);
+      const result = await callAction(() => submitApplicationAction(applicationId));
 
       if (!result.ok) {
         toast.error(result.message);

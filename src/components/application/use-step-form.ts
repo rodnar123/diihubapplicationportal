@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { z } from "zod";
 
 import type { ApplicationDto } from "@/domain/application/types";
+import { callAction } from "@/lib/client-action";
 import { applyFieldErrors } from "@/lib/form-errors";
 import type { ActionResult } from "@/lib/errors";
 
@@ -76,11 +77,13 @@ export function useStepForm<TValues extends FieldValues>({
     if (readOnly || submittingRef.current) return;
 
     setAutosaveState("saving");
-    const result = await action({
-      applicationId,
-      values: latestValuesRef.current,
-      complete: false,
-    });
+    const result = await callAction(() =>
+      action({
+        applicationId,
+        values: latestValuesRef.current,
+        complete: false,
+      }),
+    );
 
     if (submittingRef.current) return;
 
@@ -127,7 +130,9 @@ export function useStepForm<TValues extends FieldValues>({
 
     startSubmit(async () => {
       try {
-        const result = await action({ applicationId, values: values as Values, complete: true });
+        const result = await callAction(() =>
+          action({ applicationId, values: values as Values, complete: true }),
+        );
 
         if (!result.ok) {
           applyFieldErrors(form, result.fieldErrors, result.message);
@@ -158,11 +163,13 @@ export function useStepForm<TValues extends FieldValues>({
 
       startSubmit(async () => {
         try {
-          const result = await action({
-            applicationId,
-            values: form.getValues(),
-            complete: false,
-          });
+          const result = await callAction(() =>
+            action({
+              applicationId,
+              values: form.getValues(),
+              complete: false,
+            }),
+          );
 
           if (!result.ok) {
             applyFieldErrors(form, result.fieldErrors, result.message);

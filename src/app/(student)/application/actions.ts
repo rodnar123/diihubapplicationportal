@@ -177,11 +177,11 @@ export async function saveVentureStep(input: {
         projectTitle: sanitizePlainText(values.projectTitle ?? null),
         theme: sanitizePlainText(values.theme ?? null),
         sdgAlignment: values.sdgAlignment ?? [],
-        problemStatement: sanitizeRichText(values.problemStatement),
-        proposedSolution: sanitizeRichText(values.proposedSolution),
-        innovation: sanitizeRichText(values.innovation),
-        objectives: sanitizeRichText(values.objectives),
-        targetUsers: sanitizeRichText(values.targetUsers),
+        problemStatement: await sanitizeRichText(values.problemStatement),
+        proposedSolution: await sanitizeRichText(values.proposedSolution),
+        innovation: await sanitizeRichText(values.innovation),
+        objectives: await sanitizeRichText(values.objectives),
+        targetUsers: await sanitizeRichText(values.targetUsers),
       },
       { step: "venture" },
     );
@@ -213,8 +213,8 @@ export async function savePrototypeStep(input: {
       input.applicationId,
       {
         prototypeType: sanitizePlainText(values.prototypeType ?? null),
-        prototypeFeatures: sanitizeRichText(values.prototypeFeatures),
-        developmentTools: sanitizeRichText(values.developmentTools),
+        prototypeFeatures: await sanitizeRichText(values.prototypeFeatures),
+        developmentTools: await sanitizeRichText(values.developmentTools),
       },
       { step: "prototype" },
     );
@@ -245,8 +245,8 @@ export async function saveAlternativesStep(input: {
       user,
       input.applicationId,
       {
-        alternatives: sanitizeRichText(values.alternatives),
-        justification: sanitizeRichText(values.justification),
+        alternatives: await sanitizeRichText(values.alternatives),
+        justification: await sanitizeRichText(values.justification),
       },
       { step: "alternatives" },
     );
@@ -280,13 +280,13 @@ export async function saveImpactStep(input: {
       user,
       input.applicationId,
       {
-        valueProposition: sanitizeRichText(values.valueProposition),
-        implementationPlan: sanitizeRichText(values.implementationPlan),
-        expectedImpact: sanitizeRichText(values.expectedImpact),
-        sustainability: sanitizeRichText(values.sustainability),
-        timeline: sanitizeRichText(values.timeline),
+        valueProposition: await sanitizeRichText(values.valueProposition),
+        implementationPlan: await sanitizeRichText(values.implementationPlan),
+        expectedImpact: await sanitizeRichText(values.expectedImpact),
+        sustainability: await sanitizeRichText(values.sustainability),
+        timeline: await sanitizeRichText(values.timeline),
         budgetAmount: budget,
-        budgetNotes: sanitizeRichText(values.budgetNotes),
+        budgetNotes: await sanitizeRichText(values.budgetNotes),
       },
       { step: "impact" },
     );

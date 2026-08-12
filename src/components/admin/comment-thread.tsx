@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommentVisibility } from "@/generated/prisma/enums";
 import type { CommentDto } from "@/domain/application/types";
+import { callAction } from "@/lib/client-action";
 import { addCommentAction } from "@/app/(admin)/admin/actions";
 
 /**
@@ -41,10 +42,12 @@ export function CommentThread({
     setError(null);
 
     startTransition(async () => {
-      const result = await addCommentAction({
-        applicationId,
-        values: { body, visibility },
-      });
+      const result = await callAction(() =>
+        addCommentAction({
+          applicationId,
+          values: { body, visibility },
+        }),
+      );
 
       if (!result.ok) {
         setError(result.fieldErrors?.body?.[0] ?? result.message);

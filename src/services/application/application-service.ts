@@ -220,6 +220,18 @@ export interface TeamWritePayload {
  * transaction as the write, which is what makes them safe against two teams
  * registering the same name concurrently.
  */
+/**
+ * Prisma's defaults for an interactive transaction are `maxWait: 2s` and
+ * `timeout: 5s`, both of which assume a database that is a short hop away.
+ * Against a pooler in another region this write measured close to the 5s mark,
+ * and exceeding it fails the save with `P2028` even though nothing is wrong —
+ * the student just sees "Something went wrong" and loses the roster.
+ *
+ * Raised rather than removed: a genuinely stuck transaction must still let go
+ * of its pooled connection, and the pool is only three deep per instance.
+ */
+const TEAM_TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 20_000 };
+
 export async function saveTeam(
   user: SessionUser,
   applicationId: string,
@@ -228,38 +240,24 @@ export async function saveTeam(
   const application = await loadEditableApplication(user.id, applicationId);
   const challengeYear = application.challengeYear;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const trimmedName = payload.name.trim();
-
-    const duplicateName = await tx.team.findFirst({
-      where: {
-        deletedAt: null,
-        name: { equals: trimmedName, mode: "insensitive" },
-        applicationId: { not: applicationId },
-        application: {
-          challengeYear,
-          deletedAt: null,
-          status: { not: ApplicationStatus.WITHDRAWN },
-        },
-      },
-      select: { id: true },
-    });
-
-    if (duplicateName) {
-      throw conflict(`The team name "${trimmedName}" is already taken for this challenge.`, {
-        name: ["Another team has already registered this name. Choose a different one."],
-      });
-    }
 
     // A student may compete on one team only.
     const rosterIds = [payload.leaderStudentId, ...payload.members.map((m) => m.studentId)];
 
-    const clashes = await tx.teamMember.findMany({
-      where: {
-        deletedAt: null,
-        studentId: { in: rosterIds },
-        team: {
+    /*
+     * Two independent reads, so they go together. Everything in this
+     * transaction is a round trip to a pooler in another datacentre, and the
+     * autosave on the team step runs the whole thing on a debounce — the
+     * sequential version measured ~7s per save, against a 5s default
+     * interactive-transaction budget.
+     */
+    const [duplicateName, clashes] = await Promise.all([
+      tx.team.findFirst({
+        where: {
           deletedAt: null,
+          name: { equals: trimmedName, mode: "insensitive" },
           applicationId: { not: applicationId },
           application: {
             challengeYear,
@@ -267,9 +265,31 @@ export async function saveTeam(
             status: { not: ApplicationStatus.WITHDRAWN },
           },
         },
-      },
-      select: { studentId: true, team: { select: { name: true } } },
-    });
+        select: { id: true },
+      }),
+      tx.teamMember.findMany({
+        where: {
+          deletedAt: null,
+          studentId: { in: rosterIds },
+          team: {
+            deletedAt: null,
+            applicationId: { not: applicationId },
+            application: {
+              challengeYear,
+              deletedAt: null,
+              status: { not: ApplicationStatus.WITHDRAWN },
+            },
+          },
+        },
+        select: { studentId: true, team: { select: { name: true } } },
+      }),
+    ]);
+
+    if (duplicateName) {
+      throw conflict(`The team name "${trimmedName}" is already taken for this challenge.`, {
+        name: ["Another team has already registered this name. Choose a different one."],
+      });
+    }
 
     if (clashes.length > 0) {
       const fieldErrors: Record<string, string[]> = {};
@@ -346,10 +366,17 @@ export async function saveTeam(
       ],
     });
 
-    return tx.application.findUniqueOrThrow({
-      where: { id: applicationId },
-      include: applicationInclude,
-    });
+  }, TEAM_TRANSACTION_OPTIONS);
+
+  /*
+   * Read back *outside* the transaction. `applicationInclude` pulls the team,
+   * the roster, the declaration and every attachment; running that join inside
+   * held a pooled connection open for a large share of the budget, to re-read
+   * rows this request had just written.
+   */
+  const updated = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: applicationInclude,
   });
 
   await recordAudit({

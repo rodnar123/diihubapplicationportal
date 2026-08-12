@@ -24,6 +24,7 @@ import { CHALLENGE_HOST, CHALLENGE_NAME } from "@/domain/challenge/constants";
 import type { DeclarationModeSetting } from "@/domain/settings/app-settings";
 import type { ApplicantDto, ApplicationDto } from "@/domain/application/types";
 import { applyFieldErrors } from "@/lib/form-errors";
+import { callAction } from "@/lib/client-action";
 import { saveDeclarationStep } from "@/app/(student)/application/actions";
 
 /**
@@ -95,10 +96,12 @@ export function DeclarationStep({
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
-      const result = await saveDeclarationStep({
-        applicationId: application.id,
-        values,
-      });
+      const result = await callAction(() =>
+        saveDeclarationStep({
+          applicationId: application.id,
+          values,
+        }),
+      );
 
       if (!result.ok) {
         applyFieldErrors(form, result.fieldErrors, result.message);
