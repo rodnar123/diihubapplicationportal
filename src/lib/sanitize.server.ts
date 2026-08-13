@@ -129,8 +129,26 @@ const CONFIG: Config = {
  */
 let purifyPromise: Promise<typeof import("isomorphic-dompurify").default> | null = null;
 
+/**
+ * Only a *successful* load is cached. A rejected promise left in place would
+ * be a permanent fault: `??=` does not reassign a promise that is merely
+ * rejected, so one failed import would poison this instance for the rest of
+ * its life and every later narrative save would fail — while a sibling
+ * instance that never hit the error kept working. That failure mode is
+ * invisible in aggregate and close to impossible to reproduce from a bug
+ * report, so the rejection is cleared and the next caller retries.
+ *
+ * The clearing is safe: the handler runs as a microtask, strictly after
+ * `purifyPromise` has been assigned, so it can never null out a newer load.
+ */
 function loadPurify() {
-  purifyPromise ??= import("isomorphic-dompurify").then((module) => module.default);
+  purifyPromise ??= import("isomorphic-dompurify").then(
+    (module) => module.default,
+    (error: unknown) => {
+      purifyPromise = null;
+      throw error;
+    },
+  );
   return purifyPromise;
 }
 
