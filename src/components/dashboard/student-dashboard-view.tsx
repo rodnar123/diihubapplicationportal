@@ -86,7 +86,7 @@ export function StudentDashboardView({
   return (
     <>
       <PageHeader
-        title={`Kia ora, ${greetingName}`}
+        title={`Welcome, ${greetingName}`}
         description={
           <>
             Your {CHALLENGE_NAME} {settings["challenge.year"]} entry lives here. Everything is saved
