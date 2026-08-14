@@ -204,7 +204,11 @@ export function OnboardingForm({
         </FormRow>
       </FieldGroup>
 
-      <Button type="submit" className="w-full" disabled={isPending}>
+      <Button
+        type="submit"
+        className="btn-brand h-11 w-full rounded-xl text-[0.9375rem] font-semibold"
+        disabled={isPending}
+      >
         {isPending ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden />

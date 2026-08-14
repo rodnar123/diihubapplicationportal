@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { AuthCard } from "@/components/auth/auth-card";
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = {
@@ -35,15 +35,13 @@ export default async function SignInPage({
   const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : undefined;
 
   return (
-    <Card className="print-surface">
-      <CardContent className="pt-2">
-        <SignInForm
-          nextPath={safeNext}
-          errorMessage={
-            error ? (PROVIDER_ERRORS[error] ?? PROVIDER_ERRORS.OAuthCallback) : undefined
-          }
-        />
-      </CardContent>
-    </Card>
+    <AuthCard className="print-surface">
+      <SignInForm
+        nextPath={safeNext}
+        errorMessage={
+          error ? (PROVIDER_ERRORS[error] ?? PROVIDER_ERRORS.OAuthCallback) : undefined
+        }
+      />
+    </AuthCard>
   );
 }

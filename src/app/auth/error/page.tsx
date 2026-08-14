@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, Mail } from "lucide-react";
 
-import { BrandLockup } from "@/components/brand/university-mark";
+import { AuthCard, AuthCardHeading } from "@/components/auth/auth-card";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { INVALID_EMAIL_DOMAIN_MESSAGE } from "@/domain/identity/email";
 import { ROUTES } from "@/lib/routes";
 
@@ -61,48 +61,35 @@ export default async function AuthErrorPage({
     FALLBACK;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-muted/40">
-      <header className="px-4 py-4 sm:px-6">
-        <Link
-          href={ROUTES.home}
-          className="inline-block rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <BrandLockup />
-        </Link>
-      </header>
+    <AuthShell>
+      <AuthCard>
+        <div className="space-y-6">
+          <AuthCardHeading icon={AlertTriangle} title={detail.title}>
+            {detail.body}
+          </AuthCardHeading>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6">
-        <Card className="w-full max-w-md">
-          <CardContent className="space-y-6 pt-2">
-            <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-              <AlertTriangle className="size-6" aria-hidden />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Button
+              asChild
+              className="btn-brand h-11 w-full rounded-xl text-[0.9375rem] font-semibold"
+            >
+              <Link href={ROUTES.signIn}>
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to sign in
+              </Link>
+            </Button>
 
-            <div className="space-y-2">
-              <h1 className="text-xl font-semibold tracking-tight">{detail.title}</h1>
-              <p className="text-sm text-muted-foreground">{detail.body}</p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Button asChild className="w-full">
-                <Link href={ROUTES.signIn}>
-                  <ArrowLeft className="size-4" aria-hidden />
-                  Back to sign in
-                </Link>
+            {detail.showContact && (
+              <Button asChild variant="outline" className="h-11 w-full rounded-xl text-sm">
+                <a href="mailto:challenge.admin@pnguot.ac.pg">
+                  <Mail className="size-4" aria-hidden />
+                  Email the challenge office
+                </a>
               </Button>
-
-              {detail.showContact && (
-                <Button asChild variant="outline" className="w-full">
-                  <a href="mailto:challenge.admin@pnguot.ac.pg">
-                    <Mail className="size-4" aria-hidden />
-                    Email the challenge office
-                  </a>
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+            )}
+          </div>
+        </div>
+      </AuthCard>
+    </AuthShell>
   );
 }

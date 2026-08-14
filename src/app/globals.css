@@ -10,6 +10,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Height-based variant. The auth shell pins itself to the viewport so the page
+ * never scrolls, which means on a short window it is vertical space — not
+ * width — that runs out, and Tailwind ships no height breakpoints. `short:`
+ * marks the parts of the sign-in brand panel that are decoration and can go
+ * first, before anything the visitor needs starts being clipped.
+ */
+@custom-variant short (@media (height < 640px));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -266,6 +275,29 @@
     border-color: transparent;
     outline: none;
     box-shadow: 0 0 0 2px var(--sidebar-ring);
+  }
+
+  /*
+   * The primary call to action on the auth pages — the one control those
+   * pages exist for.
+   *
+   * The shared Button's default hover is `bg-primary/80`, which fades the
+   * surface toward whatever is behind it. That works in light mode, but in
+   * dark mode the primary is a light rose carrying near-black text, so fading
+   * it toward the card drags the label from 6.4:1 down to 4.6:1 — right on
+   * the AA floor, for the largest control on the page. Mixing toward black in
+   * light and toward white in dark keeps the surface moving the same way the
+   * pair was contrast-checked.
+   *
+   * Doubled selector for the same reason as `.on-brand-control` above:
+   * Tailwind's utility layer is emitted after this one, so a single class
+   * would lose the cascade to `hover:bg-primary/80` on equal specificity.
+   */
+  .btn-brand.btn-brand:hover {
+    background-color: color-mix(in oklch, var(--primary), #000 12%);
+  }
+  .dark .btn-brand.btn-brand:hover {
+    background-color: color-mix(in oklch, var(--primary), #fff 14%);
   }
 
   /* Long-form narrative answers are stored as sanitised HTML; give them

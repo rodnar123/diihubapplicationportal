@@ -35,10 +35,10 @@ export default async function OnboardingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-muted/40">
-      <header className="flex items-center justify-between px-4 py-4 sm:px-6">
+      <header className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
         <Link
           href={ROUTES.home}
-          className="rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <BrandLockup />
         </Link>
@@ -48,14 +48,19 @@ export default async function OnboardingPage() {
         </div>
       </header>
 
-      <main id="main-content" className="flex flex-1 justify-center px-4 py-8 sm:px-6">
+      <main id="main-content" className="flex flex-1 justify-center px-5 py-6 sm:px-8 sm:py-10">
         <div className="w-full max-w-2xl">
-          <Card>
+          {/*
+            Same surface as the auth cards, at the wider gutter the form's
+            two-column rows need. The shared `Card` default (16px) puts the
+            inputs almost against the card edge.
+          */}
+          <Card className="[--card-spacing:--spacing(6)] rounded-2xl shadow-lg shadow-black/5 ring-foreground/10 sm:[--card-spacing:--spacing(8)] dark:shadow-black/40 dark:ring-white/10">
             <CardHeader>
-              <CardTitle className="text-2xl">
+              <CardTitle className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">
                 {isEditing ? "Your details" : "Complete your profile"}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-pretty leading-relaxed">
                 {isEditing
                   ? "These details appear on every application you file."
                   : "We need a few details before you can start an application. They will pre-fill Section A of your entry, and you can change them later."}
