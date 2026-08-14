@@ -10,11 +10,8 @@ import {
 } from "lucide-react";
 
 import { StatusBadge } from "@/components/application/status-badge";
-import {
-  CategoryBarChart,
-  OrdinalBarChart,
-  SubmissionTrendChart,
-} from "@/components/admin/charts";
+import { BreakdownTabs } from "@/components/admin/breakdown-tabs";
+import { CategoryBarChart, SubmissionTrendChart } from "@/components/admin/charts";
 import { StatTile } from "@/components/admin/stat-tile";
 import { EmptyState } from "@/components/layout/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -72,8 +69,10 @@ export default async function AdminDashboardPage() {
         />
         <StatTile
           label="Awaiting review"
+          // Kept to one line: the tiles are a grid row, so a hint that wraps
+          // stretches all five tiles and leaves a gap under every other number.
+          hint="In the reviewer queue"
           value={stats.pendingReview}
-          hint="Submitted, under review or awaiting revision"
           icon={Inbox}
           tone="info"
           href={applicationsHref([
@@ -108,20 +107,17 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Applications by status</CardTitle>
+            <CardTitle>Applications by status</CardTitle>
             <CardDescription>Where every entry sits in the workflow.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CategoryBarChart
-              data={statusChartData}
-              emptyLabel="No applications yet"
-            />
+            <CategoryBarChart data={statusChartData} emptyLabel="No applications yet" />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Submissions over time</CardTitle>
+            <CardTitle>Submissions over time</CardTitle>
             <CardDescription>Entries submitted each day this cycle.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -131,65 +127,33 @@ export default async function AdminDashboardPage() {
             />
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Applications by school</CardTitle>
-            <CardDescription>Which schools are represented.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CategoryBarChart
-              data={stats.bySchool.map((entry) => ({ label: entry.label, count: entry.count }))}
-              emptyLabel="No applications yet"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Applications by section</CardTitle>
-            <CardDescription>Top ten sections by number of entries.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CategoryBarChart
-              data={stats.bySection.map((entry) => ({ label: entry.label, count: entry.count }))}
-              emptyLabel="No applications yet"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Applications by year level</CardTitle>
-            <CardDescription>Which cohorts are entering.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <OrdinalBarChart
-              data={stats.byYearLevel.map((entry) => ({ label: entry.label, count: entry.count }))}
-              emptyLabel="No applications yet"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Applications by theme</CardTitle>
-            <CardDescription>Which challenge themes teams chose.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CategoryBarChart
-              data={stats.byTheme.map((entry) => ({ label: entry.label, count: entry.count }))}
-              emptyLabel="No themes selected yet"
-            />
-          </CardContent>
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Who is entering</CardTitle>
+          <CardDescription>
+            The same count, cut four ways. Sections show the top ten.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BreakdownTabs
+            bySchool={stats.bySchool.map((entry) => ({ label: entry.label, count: entry.count }))}
+            bySection={stats.bySection.map((entry) => ({ label: entry.label, count: entry.count }))}
+            byYearLevel={stats.byYearLevel.map((entry) => ({
+              label: entry.label,
+              count: entry.count,
+            }))}
+            byTheme={stats.byTheme.map((entry) => ({ label: entry.label, count: entry.count }))}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Recent submissions</CardTitle>
+              <CardTitle>Recent submissions</CardTitle>
               <CardDescription>The eight most recently submitted entries.</CardDescription>
             </div>
             <Button asChild variant="outline" size="sm">

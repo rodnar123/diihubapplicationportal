@@ -37,8 +37,25 @@ const SINGLE_SERIES: ChartConfig = {
   count: { label: "Applications", color: "var(--chart-1)" },
 };
 
-function truncate(value: string, max = 22): string {
+function truncate(value: string, max = 28): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+/**
+ * Width for the category axis, from the longest label it has to carry.
+ *
+ * It was a flat 150px, which is two different bugs depending on the card: a
+ * five-status chart spent 150px on the word "Draft", while a school name was
+ * cut to "School of Business St…".
+ *
+ * The glyphs measure ~5.9px per character at `text-xs`, but Recharts reserves
+ * part of the axis for the tick margin and wraps on its own estimate, so the
+ * allowance here is 8px — overshooting a little costs a few pixels of plot,
+ * undershooting costs a wrapped label on every row.
+ */
+function categoryAxisWidth(labels: string[]): number {
+  const longest = labels.reduce((max, label) => Math.max(max, truncate(label).length), 0);
+  return Math.min(230, Math.max(96, longest * 8 + 24));
 }
 
 /**
@@ -55,10 +72,19 @@ export function CategoryBarChart({
   height?: number;
 }) {
   if (data.length === 0) {
-    return <EmptyState icon={BarChart3} title={emptyLabel} className="border-none" />;
+    return <EmptyState icon={BarChart3} title={emptyLabel} size="compact" className="border-none" />;
   }
 
-  const chartHeight = height ?? Math.max(140, data.length * 34 + 24);
+  /*
+   * 30px of row pitch for a 22px bar. The old 34 left 12px of slack per row,
+   * which is invisible on a five-bar chart and turned the ten-section
+   * breakdown into a 364px plot inside a card that had nothing else in it.
+   *
+   * Capped as well as floored: beyond about a dozen rows the chart stops
+   * being readable at a glance and the card should stay a fixed, scannable
+   * size rather than growing with whatever the data happens to contain.
+   */
+  const chartHeight = height ?? Math.min(400, Math.max(140, data.length * 30 + 24));
 
   return (
     <ChartContainer config={SINGLE_SERIES} style={{ height: chartHeight }} className="w-full">
@@ -74,7 +100,7 @@ export function CategoryBarChart({
         <YAxis
           type="category"
           dataKey="label"
-          width={150}
+          width={categoryAxisWidth(data.map((entry) => entry.label))}
           tickLine={false}
           axisLine={false}
           tickMargin={6}
@@ -106,7 +132,7 @@ export function OrdinalBarChart({
   emptyLabel: string;
 }) {
   if (data.length === 0) {
-    return <EmptyState icon={BarChart3} title={emptyLabel} className="border-none" />;
+    return <EmptyState icon={BarChart3} title={emptyLabel} size="compact" className="border-none" />;
   }
 
   return (
@@ -151,7 +177,7 @@ export function SubmissionTrendChart({
   emptyLabel: string;
 }) {
   if (data.length === 0) {
-    return <EmptyState icon={BarChart3} title={emptyLabel} className="border-none" />;
+    return <EmptyState icon={BarChart3} title={emptyLabel} size="compact" className="border-none" />;
   }
 
   const formatted = data.map((point) => ({
