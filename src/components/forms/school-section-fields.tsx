@@ -58,6 +58,25 @@ export function SchoolSectionFields<TFieldValues extends FieldValues>({
    */
   const schoolHasNoSections = Boolean(selectedSchool) && sections.length === 0;
 
+  /*
+   * A school with no sections cannot produce a submittable form, so it is not
+   * offered — except when it is the one already saved on this profile.
+   *
+   * Dropping it unconditionally would be the worse bug: a student who chose a
+   * school before its last section was deactivated would open the form to find
+   * their School select silently blank, their recorded answer gone, and no way
+   * to put it back. Keeping the saved value visible leaves their data intact
+   * and lets the section field below explain what needs fixing.
+   *
+   * Filtered here rather than in `getSchoolsWithSections` because the admin's
+   * application filter reads the same list, and applications keep their
+   * `schoolId` after a school loses its sections — pruning at the source would
+   * make those entries unfilterable by school in the review console.
+   */
+  const selectableSchools = schools.filter(
+    (school) => school.sections.length > 0 || school.id === selectedSchoolId,
+  );
+
   const previousSchoolId = useRef(selectedSchoolId);
 
   useEffect(() => {
@@ -95,7 +114,7 @@ export function SchoolSectionFields<TFieldValues extends FieldValues>({
               <SelectValue placeholder="Select your school" />
             </SelectTrigger>
             <SelectContent>
-              {schools.map((school) => (
+              {selectableSchools.map((school) => (
                 <SelectItem key={school.id} value={school.id}>
                   {school.name}
                 </SelectItem>
