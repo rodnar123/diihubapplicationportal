@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
@@ -53,6 +54,27 @@ export function PrototypeStep({
 
   const rootError = form.formState.errors.root?.message;
 
+  /*
+   * Whether the free-text box is showing is component state, not something
+   * encoded in the field value.
+   *
+   * It used to be inferred from the value, with a single space as the "Other"
+   * sentinel and `value.trim()` rendered into the input to hide it. That made
+   * the input fight the typist: every render reset the DOM value to the
+   * trimmed form, so a space could never be entered and characters around it
+   * were dropped. Typing " prototype" onto "Hardware rig" produced
+   * "Hardware rigtotype" — multi-word types were unenterable and the result
+   * was silently mangled.
+   *
+   * A stored value of literally "Other" counts as custom too: it is a preset
+   * name, but it describes nothing, so the student is asked to say what they
+   * built.
+   */
+  const savedType = application.prototypeType ?? "";
+  const [isCustomType, setIsCustomType] = useState(
+    savedType !== "" && (!PROTOTYPE_TYPES.includes(savedType) || savedType === "Other"),
+  );
+
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       {rootError && (
@@ -73,14 +95,17 @@ export function PrototypeStep({
         >
           {({ field, id, describedBy, invalid }) => {
             const value = (field.value as string) ?? "";
-            const isPreset = PROTOTYPE_TYPES.includes(value);
-            const showFreeText = value !== "" && !isPreset;
 
             return (
               <div className="space-y-2">
                 <Select
-                  value={showFreeText ? "Other" : value}
-                  onValueChange={(next) => field.onChange(next === "Other" ? " " : next)}
+                  value={isCustomType ? "Other" : value}
+                  onValueChange={(next) => {
+                    setIsCustomType(next === "Other");
+                    // Clear on switching to Other so the box starts empty and
+                    // the "describe your prototype type" rule can bite.
+                    field.onChange(next === "Other" ? "" : next);
+                  }}
                   disabled={readOnly}
                 >
                   <SelectTrigger
@@ -100,9 +125,9 @@ export function PrototypeStep({
                   </SelectContent>
                 </Select>
 
-                {showFreeText && (
+                {isCustomType && (
                   <Input
-                    value={value.trim()}
+                    value={value}
                     onChange={(event) => field.onChange(event.target.value)}
                     onBlur={field.onBlur}
                     placeholder="Describe your prototype type"
