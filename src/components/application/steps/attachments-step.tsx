@@ -43,6 +43,14 @@ export function AttachmentsStep({
     (attachment) => attachment.kind !== AttachmentKind.SIGNED_DECLARATION,
   );
 
+  /*
+   * The limit counts every attachment on the application, which is what the
+   * server enforces — but this list only shows supporting documents, so a
+   * student with a signed declaration is one file closer to the ceiling than
+   * the count above the list suggests. Name the difference rather than let
+   * them wonder why "4 files" trips a five-file limit.
+   */
+  const signedCount = application.attachments.length - supporting.length;
   const atLimit = application.attachments.length >= maxFiles;
 
   return (
@@ -71,7 +79,11 @@ export function AttachmentsStep({
 
       {atLimit && !readOnly && (
         <p className="text-sm text-muted-foreground">
-          You have reached the {maxFiles}-file limit. Remove a file before adding another.
+          You have reached the {maxFiles}-file limit
+          {signedCount > 0
+            ? `, which counts your signed declaration as well as the ${supporting.length} file${supporting.length === 1 ? "" : "s"} below`
+            : ""}
+          . Remove a file before adding another.
         </p>
       )}
 

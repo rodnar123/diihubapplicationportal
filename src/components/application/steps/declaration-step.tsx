@@ -90,7 +90,16 @@ export function DeclarationStep({
       accepted: existing?.accepted ?? false,
       signatoryName: existing?.signatoryName || applicant.fullName,
       signedDate: existing?.signedAt ? existing.signedAt.slice(0, 10) : todayIso(),
-      signedDocumentId: existing?.signedDocumentId ?? "",
+      /*
+       * Falls back to the uploaded file itself, not just the declaration
+       * record. Uploading does not create that record — so a student who
+       * uploaded their signed copy and left without pressing the button came
+       * back to see the file listed on screen while this field was empty, and
+       * was told to "Upload the signed declaration to continue" with the
+       * document sitting right there. Newest last: attachments arrive ordered
+       * by `createdAt` ascending.
+       */
+      signedDocumentId: existing?.signedDocumentId ?? signedDeclarations.at(-1)?.id ?? "",
     },
   });
 
