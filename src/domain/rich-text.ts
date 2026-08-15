@@ -100,6 +100,20 @@ export function richTextField(options: { label: string; min: number; max: number
 
   return z
     .string()
+    /*
+     * A ceiling on the raw markup, not just the readable text.
+     *
+     * The draft schema below has always had this; the required one did not,
+     * which is backwards — this is the schema that gates submission. Because
+     * length is measured on the plain text, markup nested deeply enough to
+     * render as a few hundred visible characters passed at any size, and was
+     * then handed to `sanitizeRichText`, whose jsdom parse is the one
+     * genuinely expensive operation in the request path.
+     *
+     * Checked on the string itself so it short-circuits: a failure here means
+     * `richTextLength` never walks the payload at all.
+     */
+    .max(max * 8, `${label} is too long.`)
     .refine((value) => richTextLength(value) >= min, {
       message: `${label} must be at least ${min} characters.`,
     })
