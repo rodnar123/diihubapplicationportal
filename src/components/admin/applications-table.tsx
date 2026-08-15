@@ -37,6 +37,7 @@ import {
 import { PAGE_SIZES, SORTABLE_COLUMNS, type SortableColumn } from "@/domain/admin/application-query";
 import { YEAR_LEVEL_LABELS } from "@/domain/challenge/constants";
 import type { AdminApplicationRow } from "@/services/admin/application-query";
+import { formatDate as formatChallengeDate } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ function isSortable(id: string): id is SortableColumn {
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, {
+  return formatChallengeDate(value, {
     day: "numeric",
     month: "short",
     year: "numeric",

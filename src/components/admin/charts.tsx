@@ -18,6 +18,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { EmptyState } from "@/components/layout/empty-state";
+import { formatDate } from "@/lib/format";
 import { BarChart3 } from "lucide-react";
 
 /**
@@ -182,10 +183,7 @@ export function SubmissionTrendChart({
 
   const formatted = data.map((point) => ({
     ...point,
-    label: new Date(point.date).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-    }),
+    label: formatDate(point.date, { day: "numeric", month: "short" }),
   }));
 
   return (

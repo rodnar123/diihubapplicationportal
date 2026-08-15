@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommentVisibility } from "@/generated/prisma/enums";
 import type { CommentDto } from "@/domain/application/types";
 import { callAction } from "@/lib/client-action";
+import { formatDateTime } from "@/lib/format";
 import { addCommentAction } from "@/app/(admin)/admin/actions";
 
 /**
@@ -150,7 +151,7 @@ export function CommentThread({
                   </Badge>
                   <time
                     dateTime={comment.createdAt}
-                    title={new Date(comment.createdAt).toLocaleString()}
+                    title={formatDateTime(comment.createdAt)}
                     className="text-xs text-muted-foreground"
                   >
                     {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}

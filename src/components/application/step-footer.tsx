@@ -5,13 +5,13 @@ import { ArrowLeft, ArrowRight, Check, CloudOff, Loader2, Save } from "lucide-re
 
 import { Button } from "@/components/ui/button";
 import type { AutosaveState } from "./use-step-form";
+import { formatDateTime } from "@/lib/format";
 import { useExitHref } from "./use-exit-href";
 
 function AutosaveIndicator({ state, savedAt }: { state: AutosaveState; savedAt: Date | null }) {
-  const time = savedAt?.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const time = savedAt
+    ? formatDateTime(savedAt, { hour: "2-digit", minute: "2-digit" })
+    : undefined;
 
   const content = {
     idle: null,

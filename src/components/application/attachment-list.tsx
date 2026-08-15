@@ -27,7 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { AttachmentDto } from "@/domain/application/types";
 import { callAction } from "@/lib/client-action";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatDate } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { deleteAttachmentAction } from "@/app/(student)/application/actions";
 
@@ -90,7 +90,7 @@ export function AttachmentList({
                 <p className="truncate text-sm font-medium">{attachment.fileName}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatBytes(attachment.sizeBytes)} ·{" "}
-                  {new Date(attachment.createdAt).toLocaleDateString(undefined, {
+                  {formatDate(attachment.createdAt, {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
