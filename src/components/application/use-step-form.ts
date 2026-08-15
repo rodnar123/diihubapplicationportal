@@ -28,17 +28,29 @@ export type AutosaveState = "idle" | "saving" | "saved" | "error";
 const AUTOSAVE_DELAY_MS = 1500;
 
 /**
+ * Ceiling on how long unsaved work may sit while the student keeps typing.
+ *
+ * A plain debounce is reset by every keystroke, so someone composing a long
+ * answer without a 1.5s pause never triggers a save at all. These fields ask
+ * for up to 3000 characters; that is a lot of work to be holding in the tab
+ * alone.
+ */
+const AUTOSAVE_MAX_WAIT_MS = 8000;
+
+/**
  * Wiring shared by every step of the wizard.
  *
  * Two save paths run against the same action:
- *   * autosave — debounced, `complete: false`, silent. A student who closes
- *     the tab mid-sentence loses nothing, and a half-filled field does not
- *     provoke a validation error while they are still typing.
+ *   * autosave — debounced, `complete: false`, silent, so a half-filled field
+ *     does not provoke a validation error while the student is still typing.
  *   * save and continue — `complete: true`, which applies the full rule set
  *     and only navigates once the server has accepted the step.
  *
  * Autosave is suppressed while a real submit is in flight so the two cannot
- * race and write out of order.
+ * race and write out of order, is bounded by {@link AUTOSAVE_MAX_WAIT_MS}, and
+ * is flushed when the step unmounts — the wizard's "Back" is an ordinary link,
+ * so without that flush every edit since the last pause was dropped on the way
+ * out.
  */
 export function useStepForm<TValues extends FieldValues>({
   schema,
@@ -72,10 +84,14 @@ export function useStepForm<TValues extends FieldValues>({
   const submittingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestValuesRef = useRef<Values>(defaultValues as Values);
+  /** When the oldest currently-unsaved change was made. */
+  const pendingSinceRef = useRef<number | null>(null);
 
   const runAutosave = useCallback(async () => {
     if (readOnly || submittingRef.current) return;
 
+    timerRef.current = null;
+    pendingSinceRef.current = null;
     setAutosaveState("saving");
     const result = await callAction(() =>
       action({
@@ -110,22 +126,52 @@ export function useStepForm<TValues extends FieldValues>({
       if (!type) return;
 
       latestValuesRef.current = values as Values;
+      pendingSinceRef.current ??= Date.now();
 
       if (timerRef.current) clearTimeout(timerRef.current);
+
+      // Normally 1.5s after the last keystroke, but never more than
+      // AUTOSAVE_MAX_WAIT_MS after the first unsaved one, so that continuous
+      // typing cannot hold the whole answer in the tab indefinitely.
+      const waited = Date.now() - pendingSinceRef.current;
+      const delay = Math.max(0, Math.min(AUTOSAVE_DELAY_MS, AUTOSAVE_MAX_WAIT_MS - waited));
+
       timerRef.current = setTimeout(() => {
         void runAutosave();
-      }, AUTOSAVE_DELAY_MS);
+      }, delay);
     });
 
     return () => {
       subscription.unsubscribe();
-      if (timerRef.current) clearTimeout(timerRef.current);
+
+      // Flush rather than discard. This cleanup runs when the student leaves
+      // the step, and "Back" is a plain link — clearing the timer here is what
+      // silently threw away everything typed since the last pause.
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        void runAutosave();
+      }
     };
   }, [form, readOnly, runAutosave]);
 
+  /**
+   * Cancels any queued autosave outright.
+   *
+   * The ref has to be nulled, not just cleared: the unmount flush keys off it,
+   * and a submit that navigates would otherwise unmount with a stale handle
+   * still set and fire a draft save *after* the real one — writing the client's
+   * values back over whatever the server normalised.
+   */
+  const cancelPendingAutosave = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    pendingSinceRef.current = null;
+  }, []);
+
   const submit = form.handleSubmit((values) => {
     submittingRef.current = true;
-    if (timerRef.current) clearTimeout(timerRef.current);
+    cancelPendingAutosave();
     setAutosaveState("idle");
 
     startSubmit(async () => {
@@ -159,7 +205,7 @@ export function useStepForm<TValues extends FieldValues>({
   const saveAndExit = useCallback(
     (exitHref: string) => {
       submittingRef.current = true;
-      if (timerRef.current) clearTimeout(timerRef.current);
+      cancelPendingAutosave();
 
       startSubmit(async () => {
         try {
@@ -184,7 +230,7 @@ export function useStepForm<TValues extends FieldValues>({
         }
       });
     },
-    [action, applicationId, form, router],
+    [action, applicationId, cancelPendingAutosave, form, router],
   );
 
   return { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt };
