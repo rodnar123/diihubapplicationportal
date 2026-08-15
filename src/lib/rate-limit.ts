@@ -99,4 +99,11 @@ export const RATE_LIMITS = {
   upload: { limit: 30, windowMs: 10 * 60 * 1000 },
   export: { limit: 20, windowMs: 10 * 60 * 1000 },
   comment: { limit: 60, windowMs: 10 * 60 * 1000 },
+  /**
+   * The command palette queries as the reviewer types, so this is a
+   * per-keystroke budget rather than a per-intent one. Generous enough that
+   * normal typing never trips it, tight enough that a stuck client cannot sit
+   * in a loop hitting the database.
+   */
+  paletteSearch: { limit: 120, windowMs: 60 * 1000 },
 } as const;

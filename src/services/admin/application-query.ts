@@ -76,30 +76,83 @@ export function buildApplicationWhere(query: ApplicationQuery): Prisma.Applicati
     and.push({ submittedAt });
   }
 
-  if (query.q) {
-    const term = query.q;
-    and.push({
-      OR: [
-        { referenceNumber: { contains: term, mode: "insensitive" } },
-        { projectTitle: { contains: term, mode: "insensitive" } },
-        { theme: { contains: term, mode: "insensitive" } },
-        { team: { name: { contains: term, mode: "insensitive" } } },
-        { team: { leaderName: { contains: term, mode: "insensitive" } } },
-        { team: { leaderStudentId: { contains: term, mode: "insensitive" } } },
-        { team: { members: { some: { studentId: { contains: term, mode: "insensitive" } } } } },
-        { owner: { name: { contains: term, mode: "insensitive" } } },
-        { owner: { email: { contains: term, mode: "insensitive" } } },
-        {
-          owner: {
-            studentProfile: { studentId: { contains: term, mode: "insensitive" } },
-          },
-        },
-      ],
-    });
-  }
+  if (query.q) and.push(applicationSearchFilter(query.q));
 
   if (and.length > 0) where.AND = and;
   return where;
+}
+
+/**
+ * The fields a free-text search looks at.
+ *
+ * Extracted so the review console's search box and the command palette ask the
+ * same question — a reviewer who finds an entry by student ID in one and not
+ * the other would reasonably conclude the entry had gone missing.
+ */
+export function applicationSearchFilter(term: string): Prisma.ApplicationWhereInput {
+  return {
+    OR: [
+      { referenceNumber: { contains: term, mode: "insensitive" } },
+      { projectTitle: { contains: term, mode: "insensitive" } },
+      { theme: { contains: term, mode: "insensitive" } },
+      { team: { name: { contains: term, mode: "insensitive" } } },
+      { team: { leaderName: { contains: term, mode: "insensitive" } } },
+      { team: { leaderStudentId: { contains: term, mode: "insensitive" } } },
+      { team: { members: { some: { studentId: { contains: term, mode: "insensitive" } } } } },
+      { owner: { name: { contains: term, mode: "insensitive" } } },
+      { owner: { email: { contains: term, mode: "insensitive" } } },
+      {
+        owner: {
+          studentProfile: { studentId: { contains: term, mode: "insensitive" } },
+        },
+      },
+    ],
+  };
+}
+
+export interface ApplicationSearchHit {
+  id: string;
+  referenceNumber: string | null;
+  projectTitle: string | null;
+  teamName: string | null;
+  applicantName: string;
+  status: ApplicationStatus;
+}
+
+/**
+ * A handful of best matches for the command palette.
+ *
+ * Deliberately not `findApplications`: the palette wants a short list and a
+ * few columns, not a page of full rows with counts attached. Ordered by most
+ * recently touched, because the entry a reviewer is hunting for is usually one
+ * that moved lately.
+ */
+export async function searchApplicationsQuick(
+  term: string,
+  take = 6,
+): Promise<ApplicationSearchHit[]> {
+  const rows = await prisma.application.findMany({
+    where: { deletedAt: null, AND: [applicationSearchFilter(term)] },
+    orderBy: [{ updatedAt: "desc" }],
+    take,
+    select: {
+      id: true,
+      referenceNumber: true,
+      projectTitle: true,
+      status: true,
+      team: { select: { name: true } },
+      owner: { select: { name: true, email: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    referenceNumber: row.referenceNumber,
+    projectTitle: row.projectTitle,
+    teamName: row.team?.name ?? null,
+    applicantName: row.owner.name ?? row.owner.email,
+    status: row.status,
+  }));
 }
 
 function buildOrderBy(query: ApplicationQuery): Prisma.ApplicationOrderByWithRelationInput[] {

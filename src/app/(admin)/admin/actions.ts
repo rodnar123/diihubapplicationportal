@@ -10,6 +10,7 @@ import { requireAdminForAction, requireReviewerForAction } from "@/lib/auth/sess
 import { RATE_LIMITS, enforceRateLimit } from "@/lib/rate-limit";
 import { ROUTES } from "@/lib/routes";
 import { sanitizePlainText } from "@/lib/sanitize.server";
+import { searchApplicationsQuick } from "@/services/admin/application-query";
 import { addComment, recordDecision } from "@/services/admin/review-service";
 import { sendStatusChangeEmail } from "@/services/notifications/notification-service";
 import { updateAppSettings } from "@/services/settings/settings-service";
@@ -140,5 +141,25 @@ export async function bulkDecisionAction(input: unknown) {
       succeeded: results.filter((entry) => entry.ok).length,
       failed: results.filter((entry) => !entry.ok),
     };
+  });
+}
+
+/**
+ * Free-text application lookup for the command palette.
+ *
+ * `requireReviewerForAction` rather than a UI check: the palette is rendered
+ * by the shared app shell, so a student's browser has this action in its
+ * bundle too. The client only offers the search to reviewers, but that is a
+ * convenience — this is the boundary that decides who may read other people's
+ * entries.
+ */
+export async function searchApplicationsAction(term: string) {
+  return runAction(async () => {
+    const reviewer = await requireReviewerForAction();
+    enforceRateLimit(`palette-search:${reviewer.id}`, RATE_LIMITS.paletteSearch);
+
+    const trimmed = parseOrThrow(z.string().trim().min(2).max(100), term);
+
+    return { results: await searchApplicationsQuick(trimmed) };
   });
 }

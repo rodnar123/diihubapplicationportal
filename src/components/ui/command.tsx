@@ -39,12 +39,19 @@ function CommandDialog({
   children,
   className,
   showCloseButton = false,
+  shouldFilter,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
+  /**
+   * Forwarded to cmdk. Set `false` when the caller supplies results that were
+   * already matched elsewhere — server-side search results must not be
+   * filtered a second time against the raw query string.
+   */
+  shouldFilter?: boolean
 }) {
   return (
     <Dialog {...props}>
@@ -66,7 +73,7 @@ function CommandDialog({
           takes the whole page down with it. This wrapper was missing when the
           file was vendored, so opening the palette crashed the app.
         */}
-        <Command>{children}</Command>
+        <Command shouldFilter={shouldFilter}>{children}</Command>
       </DialogContent>
     </Dialog>
   )

@@ -2,7 +2,7 @@ import { CommandPalette } from "@/components/layout/command-palette";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import type { NavGroup } from "@/components/layout/nav-config";
 import { Role } from "@/generated/prisma/enums";
-import type { SessionUser } from "@/lib/auth/session";
+import { isReviewer, type SessionUser } from "@/lib/auth/session";
 import { ROUTES } from "@/lib/routes";
 import { getUnreadNotifications } from "@/services/notifications/notification-service";
 
@@ -38,7 +38,11 @@ export async function HeaderActions({
 
   return (
     <>
-      <CommandPalette groups={navigation} isAdmin={user.role === Role.ADMIN} />
+      <CommandPalette
+        groups={navigation}
+        isAdmin={user.role === Role.ADMIN}
+        canSearchApplications={isReviewer(user.role)}
+      />
       <NotificationBell
         notifications={notifications.map((notification) => ({
           id: notification.id,
