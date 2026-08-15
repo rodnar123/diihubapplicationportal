@@ -2,6 +2,7 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 
 import { Crest, GridCell, PageFooter, SectionHeading, SignatureLine } from "@/lib/pdf/pdf-primitives";
 import { pdfStyles } from "@/lib/pdf/pdf-styles";
+import { formatDate } from "@/lib/format";
 import { CHALLENGE_HOST, CHALLENGE_NAME, UNIVERSITY_NAME } from "@/domain/challenge/constants";
 import type { ApplicantDto, ApplicationDto } from "@/domain/application/types";
 
@@ -89,7 +90,7 @@ export function DeclarationDocument({
         </View>
 
         <PageFooter
-          reference={`${reference} · Generated ${generatedAt.toLocaleDateString("en-AU", {
+          reference={`${reference} · Generated ${formatDate(generatedAt, {
             day: "numeric",
             month: "long",
             year: "numeric",

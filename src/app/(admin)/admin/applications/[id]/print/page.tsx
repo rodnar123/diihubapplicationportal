@@ -12,6 +12,7 @@ import {
 } from "@/domain/challenge/constants";
 import { requireReviewer } from "@/lib/auth/session";
 import { isAppError } from "@/lib/errors";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { getApplicationDetail } from "@/services/admin/review-service";
 
@@ -76,7 +77,7 @@ export default async function PrintApplicationPage({
             <dt className="text-xs text-muted-foreground">Submitted</dt>
             <dd className="font-medium">
               {application.submittedAt
-                ? new Date(application.submittedAt).toLocaleDateString(undefined, {
+                ? formatDate(application.submittedAt, {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
@@ -116,7 +117,7 @@ export default async function PrintApplicationPage({
         <p>
           {CHALLENGE_NAME} · {CHALLENGE_HOST} · {UNIVERSITY_NAME}
         </p>
-        <p>Printed {new Date().toLocaleString()}</p>
+        <p>Printed {formatDateTime(new Date())}</p>
       </footer>
     </div>
   );

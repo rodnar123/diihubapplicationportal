@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { requireAdmin } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { formatDateTime } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Audit log" };
@@ -137,7 +138,7 @@ export default async function AuditLogPage({
                     {entries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell className="align-top text-xs tabular-nums whitespace-nowrap text-muted-foreground">
-                          {entry.createdAt.toLocaleString(undefined, {
+                          {formatDateTime(entry.createdAt, {
                             dateStyle: "short",
                             timeStyle: "short",
                           })}

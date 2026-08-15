@@ -24,6 +24,7 @@ import { CHALLENGE_NAME } from "@/domain/challenge/constants";
 import { submissionWindow, type AppSettings } from "@/domain/settings/app-settings";
 import type { ApplicationDto } from "@/domain/application/types";
 import { ApplicationStatus } from "@/generated/prisma/enums";
+import { formatDateTime } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 
 export interface DashboardStatusEvent {
@@ -44,7 +45,7 @@ export interface DashboardComment {
 
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return null;
-  return new Date(value).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
+  return formatDateTime(value);
 }
 
 /**

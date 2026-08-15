@@ -18,6 +18,7 @@ import {
 } from "@/domain/settings/app-settings";
 import { getStep, nextStep, previousStep, type ApplicationStepSlug } from "@/domain/application/steps";
 import { ApplicationStatus } from "@/generated/prisma/enums";
+import { formatDateTime } from "@/lib/format";
 import type { SchoolOption } from "@/services/reference/reference-data";
 
 /**
@@ -175,8 +176,8 @@ export function ApplicationStepBody({
 
         const closedReason = !window.open
           ? window.reason === "NOT_YET_OPEN"
-            ? `Submissions open on ${window.opensAt?.toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" })}.`
-            : `Submissions closed on ${window.closesAt?.toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" })}.`
+            ? `Submissions open on ${window.opensAt ? formatDateTime(window.opensAt) : ""}.`
+            : `Submissions closed on ${window.closesAt ? formatDateTime(window.closesAt) : ""}.`
           : null;
 
         const school = schools.find((candidate) => candidate.id === application.schoolId);

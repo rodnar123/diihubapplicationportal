@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 
 import { StatusBadge } from "@/components/application/status-badge";
+import { formatDateTime } from "@/lib/format";
 import type { ApplicationStatus } from "@/generated/prisma/enums";
 
 export interface TimelineEvent {
@@ -46,7 +47,7 @@ export function StatusTimeline({ events }: { events: TimelineEvent[] }) {
                 <StatusBadge status={event.toStatus} />
                 <time
                   dateTime={event.createdAt}
-                  title={timestamp.toLocaleString()}
+                  title={formatDateTime(timestamp)}
                   className="text-xs text-muted-foreground"
                 >
                   {formatDistanceToNow(timestamp, { addSuffix: true })}

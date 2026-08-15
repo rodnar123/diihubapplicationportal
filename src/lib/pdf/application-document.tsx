@@ -10,6 +10,7 @@ import {
   SignatureLine,
 } from "@/lib/pdf/pdf-primitives";
 import { pdfStyles } from "@/lib/pdf/pdf-styles";
+import { formatDate as formatChallengeDate } from "@/lib/format";
 import { APPLICATION_STATUS_META } from "@/domain/application/status";
 import {
   CHALLENGE_HOST,
@@ -42,7 +43,7 @@ export interface ApplicationPdfData {
 
 function formatDate(value: string | Date | null | undefined): string | null {
   if (!value) return null;
-  return new Date(value).toLocaleDateString("en-AU", {
+  return formatChallengeDate(value, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -313,7 +314,7 @@ export function ApplicationPages({
                     {(attachment.sizeBytes / 1024).toFixed(0)} KB
                   </Text>
                   <Text style={[pdfStyles.td, { width: "16%", borderRightWidth: 0 }]}>
-                    {new Date(attachment.createdAt).toLocaleDateString("en-AU")}
+                    {formatChallengeDate(attachment.createdAt)}
                   </Text>
                 </View>
               ))}

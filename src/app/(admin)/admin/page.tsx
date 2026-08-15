@@ -21,6 +21,7 @@ import { APPLICATION_STATUS_META } from "@/domain/application/status";
 import { CHALLENGE_NAME } from "@/domain/challenge/constants";
 import { ApplicationStatus } from "@/generated/prisma/enums";
 import { requireReviewer } from "@/lib/auth/session";
+import { formatDate } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { getAdminStatistics } from "@/services/admin/statistics";
 import { getAppSettings } from "@/services/settings/settings-service";
@@ -188,7 +189,7 @@ export default async function AdminDashboardPage() {
                     <StatusBadge status={entry.status} />
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {entry.submittedAt
-                        ? new Date(entry.submittedAt).toLocaleDateString(undefined, {
+                        ? formatDate(entry.submittedAt, {
                             day: "numeric",
                             month: "short",
                           })

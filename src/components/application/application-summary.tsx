@@ -1,7 +1,7 @@
 import { Paperclip } from "lucide-react";
 
 import { AttachmentList } from "@/components/application/attachment-list";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatDate } from "@/lib/format";
 import { RichTextView } from "@/components/application/rich-text-view";
 import { EmptyState } from "@/components/layout/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -406,7 +406,7 @@ export function ApplicationSummary({
               <dt className="text-xs font-medium text-muted-foreground">Date</dt>
               <dd className="mt-0.5 text-sm">
                 {declaration.signedAt
-                  ? new Date(declaration.signedAt).toLocaleDateString(undefined, {
+                  ? formatDate(declaration.signedAt, {
                       day: "numeric",
                       month: "long",
                       year: "numeric",

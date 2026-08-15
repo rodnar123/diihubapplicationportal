@@ -11,6 +11,7 @@ import { REFERENCE_PREFIX } from "@/domain/challenge/constants";
 import { submissionWindow, type AppSettings } from "@/domain/settings/app-settings";
 import type { SessionUser } from "@/lib/auth/session";
 import { prisma, type DbTransactionClient } from "@/lib/db/prisma";
+import { formatDateTime } from "@/lib/format";
 import { AppError, conflict, forbidden, invalidState, notFound } from "@/lib/errors";
 import { AUDIT_ACTIONS, recordAudit, requestContext } from "@/services/audit/audit-log";
 import { getAppSettings } from "@/services/settings/settings-service";
@@ -526,8 +527,8 @@ export async function submitApplication(
     throw new AppError(
       "SUBMISSION_CLOSED",
       window.reason === "NOT_YET_OPEN"
-        ? `Submissions open on ${window.opensAt?.toLocaleString("en-AU", { dateStyle: "long", timeStyle: "short" })}.`
-        : `Submissions closed on ${window.closesAt?.toLocaleString("en-AU", { dateStyle: "long", timeStyle: "short" })}.`,
+        ? `Submissions open on ${window.opensAt ? formatDateTime(window.opensAt) : ""}.`
+        : `Submissions closed on ${window.closesAt ? formatDateTime(window.closesAt) : ""}.`,
     );
   }
 
