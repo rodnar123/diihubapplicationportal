@@ -65,6 +65,17 @@ export function VentureStep({
 
   const rootError = form.formState.errors.root?.message;
 
+  /*
+   * Administrators can rename or remove a theme at any time, and the setting
+   * takes effect immediately. When that happens to a theme a team already
+   * chose, the Select has no option matching the saved value and simply shows
+   * its placeholder — the student's answer disappears from the screen with no
+   * explanation, and saving then fails the `themes.includes` check for a
+   * reason they cannot see. Say what happened instead.
+   */
+  const savedTheme = application.theme ?? "";
+  const themeRetired = savedTheme.length > 0 && !themes.includes(savedTheme);
+
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       {rootError && (
@@ -72,6 +83,17 @@ export function VentureStep({
           <AlertCircle className="size-4" aria-hidden />
           <AlertTitle>We couldn&rsquo;t save this section</AlertTitle>
           <AlertDescription>{rootError}</AlertDescription>
+        </Alert>
+      )}
+
+      {themeRetired && !readOnly && (
+        <Alert>
+          <AlertCircle className="size-4" aria-hidden />
+          <AlertTitle>Your theme is no longer offered</AlertTitle>
+          <AlertDescription>
+            You chose &ldquo;{savedTheme}&rdquo;, which the challenge office has since changed.
+            Pick the closest theme from the list before saving.
+          </AlertDescription>
         </Alert>
       )}
 

@@ -271,7 +271,16 @@ export function TeamStep({
             description="Add each member's student ID, name, section and role in the team."
             action={
               !readOnly && (
-                <Button type="button" variant="outline" onClick={() => append(emptyMember())}>
+                // Gated like "Add another member" below. With `team.maxSize`
+                // set to 1 the leader already fills the team, and only this
+                // button was still offering to add someone the server would
+                // then refuse.
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => append(emptyMember())}
+                  disabled={!canAddMore}
+                >
                   <Plus className="size-4" aria-hidden />
                   Add first member
                 </Button>
