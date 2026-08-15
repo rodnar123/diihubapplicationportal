@@ -69,6 +69,15 @@ export function ApplicationStepBody({
   const accept = acceptAttributeFor(settings["uploads.allowedMimeTypes"]);
   const allowedTypesLabel = describeAllowedTypes(settings["uploads.allowedMimeTypes"]);
 
+  /*
+   * A plain object rather than the Map, because the team step is a Client
+   * Component. The lookup deliberately covers deactivated sections too, so a
+   * roster recorded against one still resolves to its real name.
+   */
+  const sectionNameById = Object.fromEntries(
+    [...sectionLookup.entries()].map(([id, value]) => [id, value.name]),
+  );
+
   const body = (() => {
     switch (slug) {
       case "applicant":
@@ -88,6 +97,7 @@ export function ApplicationStepBody({
             application={application}
             applicant={applicant}
             schools={schools}
+            sectionNameById={sectionNameById}
             minSize={settings["team.minSize"]}
             maxSize={settings["team.maxSize"]}
             readOnly={readOnly}
@@ -188,9 +198,7 @@ export function ApplicationStepBody({
               applicant={applicant}
               schoolName={school?.name ?? null}
               sectionName={section?.name ?? null}
-              sectionNameById={Object.fromEntries(
-                [...sectionLookup.entries()].map(([id, value]) => [id, value.name]),
-              )}
+              sectionNameById={sectionNameById}
               allowDownload={allowDownload}
             />
           </div>

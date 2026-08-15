@@ -39,6 +39,7 @@ export function TeamStep({
   application,
   applicant,
   schools,
+  sectionNameById,
   minSize,
   maxSize,
   readOnly,
@@ -48,6 +49,8 @@ export function TeamStep({
   application: ApplicationDto;
   applicant: ApplicantDto;
   schools: SchoolOption[];
+  /** Covers deactivated sections, which `schools` deliberately omits. */
+  sectionNameById: Record<string, string>;
   minSize: number;
   maxSize: number;
   readOnly: boolean;
@@ -55,6 +58,19 @@ export function TeamStep({
   nextHref: string | null;
 }) {
   const schema = useMemo(() => createTeamSchema({ minSize, maxSize }), [minSize, maxSize]);
+
+  /*
+   * `schools` carries only active sections, so a member recorded against one
+   * that has since been deactivated had no matching option and the select
+   * rendered blank — while the review page and the printed form still showed
+   * their section, because the name lookup covers inactive rows. The value is
+   * still good data and the server preserves it, so it is kept in the list
+   * rather than warned about; only the picker had forgotten it.
+   */
+  const activeSectionIds = useMemo(
+    () => new Set(schools.flatMap((school) => school.sections.map((section) => section.id))),
+    [schools],
+  );
   const team = application.team;
   const otherMembers = team?.members.filter((member) => !member.isLeader) ?? [];
 
@@ -383,6 +399,18 @@ export function TeamStep({
                           <SelectValue placeholder="Select section" />
                         </SelectTrigger>
                         <SelectContent>
+                          {(() => {
+                            const current = (field.value as string) ?? "";
+                            if (!current || activeSectionIds.has(current)) return null;
+                            return (
+                              <SelectGroup>
+                                <SelectLabel>No longer offered</SelectLabel>
+                                <SelectItem value={current}>
+                                  {sectionNameById[current] ?? "Previously selected section"}
+                                </SelectItem>
+                              </SelectGroup>
+                            );
+                          })()}
                           {schools.map((school) => (
                             <SelectGroup key={school.id}>
                               <SelectLabel>{school.name}</SelectLabel>
