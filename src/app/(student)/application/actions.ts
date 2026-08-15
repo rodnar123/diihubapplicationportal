@@ -22,7 +22,8 @@ import {
 import type { ApplicationDto } from "@/domain/application/types";
 import { requireStudentForAction } from "@/lib/auth/session";
 import { nullifyBlank, parseOrThrow, runAction } from "@/lib/action-helpers";
-import { AppError, type ActionResult } from "@/lib/errors";
+import { prisma } from "@/lib/db/prisma";
+import { AppError, conflict, type ActionResult } from "@/lib/errors";
 import { RATE_LIMITS, enforceRateLimit } from "@/lib/rate-limit";
 import { ROUTES } from "@/lib/routes";
 import { sanitizePlainText, sanitizeRichText } from "@/lib/sanitize.server";
@@ -73,6 +74,37 @@ export async function saveApplicantStep(input: {
     const values = input.complete
       ? parseOrThrow(applicantSectionSchema, input.values)
       : parseOrThrow(applicantSectionDraftSchema, input.values);
+
+    /*
+     * A section has to belong to the school beside it.
+     *
+     * `connect` only proves each id exists, so a request pairing one school
+     * with another school's section was written happily — and that pairing
+     * then feeds the admin's section breakdown, the section filter and the
+     * printed form. `saveStudentProfile` has guarded this since onboarding was
+     * written; Section A writes the same two fields and did not.
+     *
+     * Checked on drafts too, not just on submit: the UI clears the section
+     * whenever the school changes, so an inconsistent pair cannot come from
+     * ordinary use, and a draft that carries one would otherwise sit in the
+     * statistics until the student happened to submit.
+     *
+     * Deliberately not filtered on `isActive`, unlike onboarding: a section
+     * retired after a student chose it is still theirs, and refusing it here
+     * would lock them out of saving Section A entirely.
+     */
+    if (values.schoolId && values.sectionId) {
+      const section = await prisma.section.findFirst({
+        where: { id: values.sectionId, schoolId: values.schoolId },
+        select: { id: true },
+      });
+
+      if (!section) {
+        throw conflict("That section is not part of the selected school.", {
+          sectionId: ["Choose a section from the selected school."],
+        });
+      }
+    }
 
     const application = await saveApplicationFields(
       user,
