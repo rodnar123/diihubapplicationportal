@@ -103,7 +103,7 @@ export default async function AdminApplicationDetailPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <Card className="order-2 lg:order-1">
           <CardHeader>
-            <CardTitle className="text-base">Application</CardTitle>
+            <CardTitle>Application</CardTitle>
             <CardDescription>
               Everything the team submitted, in the order of the official form.
             </CardDescription>
@@ -123,7 +123,7 @@ export default async function AdminApplicationDetailPage({
         <div className="order-1 space-y-6 lg:order-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Review</CardTitle>
+              <CardTitle>Review</CardTitle>
               <CardDescription>Record a decision on this entry.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -137,7 +137,7 @@ export default async function AdminApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Comments &amp; notes</CardTitle>
+              <CardTitle>Comments &amp; notes</CardTitle>
               <CardDescription>
                 Internal notes stay with the panel; shared comments reach the team.
               </CardDescription>
@@ -149,7 +149,7 @@ export default async function AdminApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">History</CardTitle>
+              <CardTitle>History</CardTitle>
               <CardDescription>Every status change on this application.</CardDescription>
             </CardHeader>
             <CardContent>

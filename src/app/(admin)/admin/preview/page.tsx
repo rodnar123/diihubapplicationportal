@@ -41,7 +41,7 @@ export default async function PreviewDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">The form, section by section</CardTitle>
+          <CardTitle>The form, section by section</CardTitle>
           <CardDescription>
             The same wizard students fill in. Every question, in the order it is asked.
           </CardDescription>

@@ -237,7 +237,7 @@ export function StudentDashboardView({
           {/* Activity */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recent activity</CardTitle>
+              <CardTitle>Recent activity</CardTitle>
               <CardDescription>Every change to your application&rsquo;s status.</CardDescription>
             </CardHeader>
             <CardContent>
