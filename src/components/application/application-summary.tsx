@@ -67,6 +67,21 @@ function PlainAnswer({ value }: { value: string | null | undefined }) {
   return <p className="text-sm">{value}</p>;
 }
 
+/**
+ * Wrapping for values with no spaces to break on — email addresses, uploaded
+ * file names.
+ *
+ * These were `truncate`d, which is unrecoverable: there is no hover on paper,
+ * and this component is exactly what the print layout renders. A printed form
+ * carried "25531000junior@student.pnguot.ac…" as the applicant's contact
+ * address, and the attachment list lost the ends of its file names.
+ *
+ * `anywhere` rather than `break-all` so a value only breaks when it genuinely
+ * will not fit, and so the cell's min-content width collapses instead of
+ * overflowing its grid column.
+ */
+const WRAP_ANYWHERE = "[overflow-wrap:anywhere]";
+
 export function ApplicationSummary({
   application,
   applicant,
@@ -122,7 +137,7 @@ export function ApplicationSummary({
           </div>
           <div className="min-w-0">
             <dt className="text-xs font-medium text-muted-foreground">Email</dt>
-            <dd className="mt-0.5 truncate text-sm">{applicant.email}</dd>
+            <dd className={`mt-0.5 text-sm ${WRAP_ANYWHERE}`}>{applicant.email}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Phone</dt>
@@ -163,7 +178,7 @@ export function ApplicationSummary({
           </div>
           <div className="min-w-0">
             <dt className="text-xs font-medium text-muted-foreground">Contact email</dt>
-            <dd className="mt-0.5 truncate text-sm">{team?.leaderEmail || "—"}</dd>
+            <dd className={`mt-0.5 text-sm ${WRAP_ANYWHERE}`}>{team?.leaderEmail || "—"}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Leader&rsquo;s phone</dt>
@@ -176,7 +191,7 @@ export function ApplicationSummary({
           {team?.supervisorEmail && (
             <div className="min-w-0">
               <dt className="text-xs font-medium text-muted-foreground">Supervisor email</dt>
-              <dd className="mt-0.5 truncate text-sm">{team.supervisorEmail}</dd>
+              <dd className={`mt-0.5 text-sm ${WRAP_ANYWHERE}`}>{team.supervisorEmail}</dd>
             </div>
           )}
         </dl>
@@ -356,7 +371,7 @@ export function ApplicationSummary({
               <ul className="divide-y rounded-md border text-sm">
                 {supportingFiles.map((attachment) => (
                   <li key={attachment.id} className="flex justify-between gap-4 px-3 py-2">
-                    <span className="truncate">{attachment.fileName}</span>
+                    <span className={`min-w-0 ${WRAP_ANYWHERE}`}>{attachment.fileName}</span>
                     <span className="shrink-0 text-muted-foreground">
                       {formatBytes(attachment.sizeBytes)}
                     </span>
