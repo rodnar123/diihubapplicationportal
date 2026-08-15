@@ -22,7 +22,12 @@ export interface NotificationItem {
   id: string;
   title: string;
   body: string;
-  applicationId: string | null;
+  /**
+   * Where this notification leads. Resolved by the caller rather than built
+   * here: the target depends on the reader's role, and a Server Component
+   * cannot hand a URL-builder function to a Client Component.
+   */
+  href: string;
   createdAt: string;
 }
 
@@ -33,13 +38,7 @@ export interface NotificationItem {
  * polling — the events that produce a notification (a decision, a comment) are
  * infrequent enough that a background poll would be pure overhead.
  */
-export function NotificationBell({
-  notifications,
-  detailHref,
-}: {
-  notifications: NotificationItem[];
-  detailHref: string;
-}) {
+export function NotificationBell({ notifications }: { notifications: NotificationItem[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -106,7 +105,7 @@ export function NotificationBell({
               {notifications.map((notification) => (
                 <li key={notification.id}>
                   <Link
-                    href={detailHref}
+                    href={notification.href}
                     className="block px-4 py-3 transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <p className="text-sm font-medium">{notification.title}</p>

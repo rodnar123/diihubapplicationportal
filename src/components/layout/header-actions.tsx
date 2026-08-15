@@ -20,17 +20,31 @@ export async function HeaderActions({
   navigation: NavGroup[];
 }) {
   const notifications = await getUnreadNotifications(user.id);
+  const isStudent = user.role === Role.STUDENT;
+
+  /*
+   * Staff get taken to the entry the notification is about. `applicationId`
+   * was already being carried through to the bell and then dropped, so every
+   * notification — five of them, about five different applications — landed
+   * the reviewer on the same dashboard.
+   *
+   * A student has one entry and no per-application route of their own, so
+   * their notifications still lead to the dashboard that shows it.
+   */
+  const hrefFor = (applicationId: string | null) => {
+    if (isStudent) return ROUTES.dashboard;
+    return applicationId ? ROUTES.adminApplication(applicationId) : ROUTES.admin;
+  };
 
   return (
     <>
       <CommandPalette groups={navigation} isAdmin={user.role === Role.ADMIN} />
       <NotificationBell
-        detailHref={user.role === Role.STUDENT ? ROUTES.dashboard : ROUTES.admin}
         notifications={notifications.map((notification) => ({
           id: notification.id,
           title: notification.title,
           body: notification.body,
-          applicationId: notification.applicationId,
+          href: hrefFor(notification.applicationId),
           createdAt: notification.createdAt.toISOString(),
         }))}
       />

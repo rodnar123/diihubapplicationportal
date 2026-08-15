@@ -59,7 +59,14 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        {/*
+          The `Command` root is not optional. It owns cmdk's store, and every
+          CommandInput/List/Item below reads that store from context — without
+          it the first one to render dereferences `undefined.subscribe` and
+          takes the whole page down with it. This wrapper was missing when the
+          file was vendored, so opening the palette crashed the app.
+        */}
+        <Command>{children}</Command>
       </DialogContent>
     </Dialog>
   )

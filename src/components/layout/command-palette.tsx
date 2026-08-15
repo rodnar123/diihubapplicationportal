@@ -14,7 +14,6 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
 import { NAV_ICONS, type NavGroup } from "@/components/layout/nav-config";
 
@@ -118,8 +117,10 @@ export function CommandPalette({
               ) : (
                 <Moon className="size-4" aria-hidden />
               )}
+              {/* No CommandShortcut here: ⌘K opens this palette, it does not
+                  toggle the theme, and advertising it as this item's shortcut
+                  promised a binding that does not exist. */}
               Switch to {resolvedTheme === "dark" ? "light" : "dark"} theme
-              <CommandShortcut>⌘K</CommandShortcut>
             </CommandItem>
           </CommandGroup>
         </CommandList>
