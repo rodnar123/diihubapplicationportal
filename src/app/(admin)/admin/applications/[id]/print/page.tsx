@@ -12,6 +12,7 @@ import {
 } from "@/domain/challenge/constants";
 import { requireReviewer } from "@/lib/auth/session";
 import { isAppError } from "@/lib/errors";
+import { ROUTES } from "@/lib/routes";
 import { getApplicationDetail } from "@/services/admin/review-service";
 
 export const metadata: Metadata = {
@@ -47,7 +48,7 @@ export default async function PrintApplicationPage({
 
   return (
     <div className="mx-auto min-h-dvh max-w-4xl bg-background px-6 py-8 print:px-0 print:py-0">
-      <PrintTrigger />
+      <PrintTrigger backHref={ROUTES.adminApplication(id)} />
 
       <header className="mb-8 border-b-2 border-primary pb-4">
         <div className="flex items-center gap-4">

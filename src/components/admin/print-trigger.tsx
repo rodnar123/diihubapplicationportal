@@ -1,8 +1,7 @@
 "use client";
 
-import { Printer, X } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,9 +11,7 @@ import { Button } from "@/components/ui/button";
  * The print dialog is not opened automatically: an unexpected modal on page
  * load is disorienting, and a reviewer often wants to read the page first.
  */
-export function PrintTrigger() {
-  const router = useRouter();
-
+export function PrintTrigger({ backHref }: { backHref: string }) {
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 px-4 py-3 print:hidden">
       <p className="text-sm text-muted-foreground">
@@ -22,9 +19,25 @@ export function PrintTrigger() {
       </p>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <X className="size-4" aria-hidden />
-          Close
+        {/*
+          A link, not `router.back()`.
+
+          This view is only ever reached through a `target="_blank"` link, so
+          the tab it lives in has no history entry before it — `back()` had
+          nothing to go back to and did nothing at all, which is why the
+          button looked dead.
+
+          `window.close()` is not the answer either: the tab was opened by a
+          link rather than by script, so the browser refuses to close it and
+          logs a warning. Navigating to the application always works, and the
+          label now says what actually happens rather than promising to close
+          a tab we cannot close.
+        */}
+        <Button asChild variant="ghost" size="sm">
+          <Link href={backHref}>
+            <ArrowLeft className="size-4" aria-hidden />
+            Back to application
+          </Link>
         </Button>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="size-4" aria-hidden />

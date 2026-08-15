@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, Printer } from "lucide-react";
+import { Download } from "lucide-react";
 
 import { ApplicationSummary } from "@/components/application/application-summary";
 import { StatusBadge } from "@/components/application/status-badge";
 import { StatusTimeline } from "@/components/application/status-timeline";
 import { CommentThread } from "@/components/admin/comment-thread";
+import { PrintLink } from "@/components/admin/print-trigger";
 import { ReviewPanel } from "@/components/admin/review-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -84,12 +84,7 @@ export default async function AdminApplicationDetailPage({
         ]}
         actions={
           <>
-            <Button asChild variant="outline">
-              <Link href={ROUTES.adminApplicationPrint(id)} target="_blank">
-                <Printer className="size-4" aria-hidden />
-                Print
-              </Link>
-            </Button>
+            <PrintLink href={ROUTES.adminApplicationPrint(id)} />
             <Button asChild variant="outline">
               <a href={ROUTES.applicationPdf(id)} download>
                 <Download className="size-4" aria-hidden />
