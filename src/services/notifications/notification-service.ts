@@ -137,6 +137,8 @@ export async function sendSubmissionEmails(input: {
  */
 export async function sendStatusChangeEmail(input: {
   applicationId: string;
+  /** The row this email belongs to, so the send can be stamped on it. */
+  notificationId: string;
   userId: string;
   title: string;
   body: string;
@@ -169,19 +171,20 @@ export async function sendStatusChangeEmail(input: {
       action: { label: "Open my dashboard", href: ROUTES.dashboard },
     });
 
-    const notification = await prisma.notification.findFirst({
-      where: { userId: input.userId, applicationId: input.applicationId, emailSentAt: null },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-
     const result = await sendEmail({
       to: user.email,
       subject: `${input.title} — ${reference}`,
       ...copy,
     });
 
-    if (result.delivered && notification) await markEmailSent(notification.id);
+    /*
+     * Stamped by id. This used to find "the newest unsent notification for
+     * this user and application", which is the right row only as long as one
+     * is created at a time — a shared comment landing alongside a decision
+     * would have marked the wrong one as emailed and left the real one
+     * looking unsent forever.
+     */
+    if (result.delivered) await markEmailSent(input.notificationId);
   } catch (error) {
     console.error("[notifications] status email failed", {
       applicationId: input.applicationId,

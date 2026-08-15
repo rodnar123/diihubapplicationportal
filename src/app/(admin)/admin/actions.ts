@@ -45,6 +45,7 @@ export async function recordDecisionAction(input: {
     if (result.notification) {
       await sendStatusChangeEmail({
         applicationId: input.applicationId,
+        notificationId: result.notification.id,
         userId: result.notification.userId,
         title: result.notification.title,
         body: result.notification.body,

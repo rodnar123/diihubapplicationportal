@@ -128,7 +128,13 @@ function notificationCopy(
 
 export interface DecisionResult {
   application: ApplicationDto;
-  notification: { userId: string; type: NotificationType; title: string; body: string } | null;
+  notification: {
+    id: string;
+    userId: string;
+    type: NotificationType;
+    title: string;
+    body: string;
+  } | null;
 }
 
 /**
@@ -209,9 +215,11 @@ export async function recordDecision(
     }
 
     const notificationType = NOTIFICATION_BY_STATUS[nextStatus];
+    let notificationId: string | null = null;
+
     if (notificationType && input.notifyApplicant) {
       const copy = notificationCopy(nextStatus, existing.referenceNumber);
-      await tx.notification.create({
+      const created = await tx.notification.create({
         data: {
           userId: existing.ownerId,
           applicationId,
@@ -219,7 +227,9 @@ export async function recordDecision(
           title: copy.title,
           body: copy.body,
         },
+        select: { id: true },
       });
+      notificationId = created.id;
     }
 
     await tx.auditLog.create({
@@ -240,16 +250,19 @@ export async function recordDecision(
       },
     });
 
-    return application;
+    return { application, notificationId };
   });
 
   const notificationType = NOTIFICATION_BY_STATUS[nextStatus];
 
   return {
-    application: toApplicationDto(updated),
+    application: toApplicationDto(updated.application),
     notification:
-      notificationType && input.notifyApplicant
+      notificationType && input.notifyApplicant && updated.notificationId
         ? {
+            // The row's own id, so the email can stamp the notification it
+            // actually belongs to rather than the newest unsent one.
+            id: updated.notificationId,
             userId: existing.ownerId,
             type: notificationType,
             ...notificationCopy(nextStatus, existing.referenceNumber),
