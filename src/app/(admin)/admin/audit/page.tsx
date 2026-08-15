@@ -24,6 +24,40 @@ export const metadata: Metadata = { title: "Audit log" };
 const PAGE_SIZE = 50;
 
 /**
+ * One step of the pager.
+ *
+ * A disabled step renders as a real `<button>`, not a link.
+ * `<Button asChild disabled>` around a `<Link>` forwards `disabled` to an
+ * `<a>`, where it means nothing: anchors have no disabled state, and the
+ * variant's `disabled:opacity-50` / `disabled:pointer-events-none` are
+ * `:disabled` pseudo-class rules that never match one. Both ends of the pager
+ * therefore looked and behaved enabled on the first and last page.
+ */
+function PagerStep({
+  href,
+  disabled,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  if (disabled) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        {children}
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={href}>{children}</Link>
+    </Button>
+  );
+}
+
+/**
  * The audit trail.
  *
  * Read-only by design: entries are never edited or deleted from the UI, which
@@ -62,11 +96,28 @@ export default async function AuditLogPage({
 
       <Card>
         <CardContent className="space-y-4">
-          {entries.length === 0 ? (
+          {total === 0 ? (
             <EmptyState
               icon={ScrollText}
               title="Nothing recorded yet"
               description="Actions will appear here as people use the portal."
+            />
+          ) : entries.length === 0 ? (
+            /*
+              Past the end of the log — reachable by editing `?page` by hand.
+              This used to fall into the branch above and claim nothing had ever
+              been recorded, on a page that then rendered no pager, leaving the
+              administrator staring at a false statement with no way back.
+            */
+            <EmptyState
+              icon={ScrollText}
+              title="No entries on this page"
+              description={`The log holds ${total} ${total === 1 ? "entry" : "entries"} across ${pageCount} ${pageCount === 1 ? "page" : "pages"}.`}
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link href={ROUTES.adminAudit}>Back to the first page</Link>
+                </Button>
+              }
             />
           ) : (
             <>
@@ -135,16 +186,18 @@ export default async function AuditLogPage({
                   Page {page} of {pageCount} · {total} entries
                 </p>
                 <nav aria-label="Pagination" className="flex gap-2">
-                  <Button asChild variant="outline" size="sm" disabled={page <= 1}>
-                    <Link href={`${ROUTES.adminAudit}?page=${Math.max(1, page - 1)}`}>
-                      Previous
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm" disabled={page >= pageCount}>
-                    <Link href={`${ROUTES.adminAudit}?page=${Math.min(pageCount, page + 1)}`}>
-                      Next
-                    </Link>
-                  </Button>
+                  <PagerStep
+                    href={`${ROUTES.adminAudit}?page=${Math.max(1, page - 1)}`}
+                    disabled={page <= 1}
+                  >
+                    Previous
+                  </PagerStep>
+                  <PagerStep
+                    href={`${ROUTES.adminAudit}?page=${Math.min(pageCount, page + 1)}`}
+                    disabled={page >= pageCount}
+                  >
+                    Next
+                  </PagerStep>
                 </nav>
               </div>
             </>

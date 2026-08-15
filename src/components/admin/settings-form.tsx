@@ -257,6 +257,7 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
                 max={100}
                 value={values["uploads.maxFileSizeMb"]}
                 onChange={(event) => set("uploads.maxFileSizeMb", Number(event.target.value))}
+                aria-invalid={Boolean(errorFor("uploads.maxFileSizeMb")) || undefined}
               />
               <FieldDescription>
                 {APP_SETTING_DESCRIPTIONS["uploads.maxFileSizeMb"]}
@@ -277,10 +278,20 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
                 onChange={(event) =>
                   set("uploads.maxFilesPerApplication", Number(event.target.value))
                 }
+                aria-invalid={Boolean(errorFor("uploads.maxFilesPerApplication")) || undefined}
               />
               <FieldDescription>
                 {APP_SETTING_DESCRIPTIONS["uploads.maxFilesPerApplication"]}
               </FieldDescription>
+              {/* This was the one field with no error slot. `updateAppSettings`
+                  returns errors keyed by setting name, so a rejected value here
+                  was returned by the server and then dropped on the floor: the
+                  admin got "Some settings were not valid" with nothing marked,
+                  and no way to tell which field to fix. Clearing the input is
+                  enough to trigger it — `Number("")` is 0, below the minimum. */}
+              {errorFor("uploads.maxFilesPerApplication") && (
+                <FieldError>{errorFor("uploads.maxFilesPerApplication")}</FieldError>
+              )}
             </Field>
           </div>
 
