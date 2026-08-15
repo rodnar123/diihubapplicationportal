@@ -1,6 +1,8 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
+import { SERVER_ACTION_BODY_LIMIT } from "./src/domain/settings/upload-limits";
+
 const isProduction = process.env.NODE_ENV === "production";
 // Accepts either spelling: Vercel's Supabase integration injects
 // `SUPABASE_URL`, a hand-configured project usually has the NEXT_PUBLIC one.
@@ -84,6 +86,21 @@ const nextConfig: NextConfig = {
   images: { remotePatterns: [] },
 
   poweredByHeader: false,
+
+  experimental: {
+    serverActions: {
+      /*
+       * Attachments are posted through a Server Action, and the default cap is
+       * 1MB — so a 3MB prototype screenshot was refused by the framework
+       * before any of the upload service's own checks or messages ran, while
+       * the uploader told the student 10MB was fine.
+       *
+       * Kept in step with the settings ceiling via a shared constant; see
+       * `src/domain/settings/upload-limits.ts`.
+       */
+      bodySizeLimit: SERVER_ACTION_BODY_LIMIT,
+    },
+  },
 
   async headers() {
     return [

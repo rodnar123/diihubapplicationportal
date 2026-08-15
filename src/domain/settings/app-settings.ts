@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { DEFAULT_MAX_TEAM_SIZE } from "@/domain/challenge/constants";
+import { MAX_UPLOAD_MB } from "@/domain/settings/upload-limits";
 
 /**
  * Runtime configuration an administrator can change without a deployment.
@@ -27,7 +28,7 @@ export const appSettingsSchema = z.object({
   "team.minSize": z.number().int().min(1).max(50),
   "team.maxSize": z.number().int().min(1).max(50),
 
-  "uploads.maxFileSizeMb": z.number().int().min(1).max(100),
+  "uploads.maxFileSizeMb": z.number().int().min(1).max(MAX_UPLOAD_MB),
   "uploads.maxFilesPerApplication": z.number().int().min(1).max(50),
   "uploads.allowedMimeTypes": z.array(z.string().min(1)).min(1),
 
