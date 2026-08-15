@@ -1,4 +1,4 @@
-import { richTextToPlainText } from "@/domain/rich-text";
+import { decodeHtmlEntities as decodeEntities, richTextToPlainText } from "@/domain/rich-text";
 
 /**
  * Turns stored rich text into a flat block list that React-PDF can render.
@@ -33,26 +33,6 @@ const INLINE_STYLES: Record<string, keyof Omit<InlineRun, "text">> = {
   s: "strike",
 };
 
-const ENTITIES: Record<string, string> = {
-  "&nbsp;": " ",
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&rsquo;": "’",
-  "&lsquo;": "‘",
-  "&ldquo;": "“",
-  "&rdquo;": "”",
-  "&mdash;": "—",
-  "&ndash;": "–",
-};
-
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&[a-z]+;/gi, (entity) => ENTITIES[entity.toLowerCase()] ?? entity);
-}
 
 const TOKEN = /<\/?([a-zA-Z0-9]+)(?:\s[^>]*)?\/?>|([^<]+)/g;
 

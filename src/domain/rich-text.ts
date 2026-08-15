@@ -47,11 +47,42 @@ const ENTITIES: Record<string, string> = {
   "&ndash;": "–",
 };
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&[a-z]+;|&#\d+;/gi, (entity) => ENTITIES[entity.toLowerCase()] ?? entity);
+/**
+ * Decodes the entities the editor produces, leaving anything malformed as it
+ * found it.
+ *
+ * The range guards are not decoration. `String.fromCodePoint` throws a
+ * RangeError above U+10FFFF, and this runs inside the zod refinement that
+ * measures a narrative answer — on the *raw* posted string, before
+ * sanitisation has had a chance to normalise anything. A request carrying
+ * `&#99999999;` therefore threw out of validation instead of returning a
+ * message, and the same call powers the editor's live character counter.
+ *
+ * Lone surrogates are refused for the same reason they are in
+ * `sanitize.server.ts`: they survive `fromCodePoint` but poison any later
+ * serialisation.
+ *
+ * Exported so `lib/pdf/parse-rich-text.ts` shares it rather than keeping a
+ * third copy — the divergence between copies is what left this one unguarded.
+ */
+export function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+    if (body.startsWith("#")) {
+      const code =
+        body[1]?.toLowerCase() === "x"
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match;
+      if (code >= 0xd800 && code <= 0xdfff) return match;
+      return String.fromCodePoint(code);
+    }
+
+    return ENTITIES[match.toLowerCase()] ?? match;
+  });
 }
+
+const decodeEntities = decodeHtmlEntities;
 
 /**
  * Renders HTML down to readable plain text. Used for length validation, CSV
