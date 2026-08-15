@@ -47,6 +47,17 @@ export function SchoolSectionFields<TFieldValues extends FieldValues>({
   const selectedSchool = schools.find((school) => school.id === selectedSchoolId);
   const sections = selectedSchool?.sections ?? [];
 
+  /*
+   * "No school chosen yet" and "this school lists no sections" both leave the
+   * select empty and disabled, but they are not the same problem and must not
+   * share a message. A school whose sections have all been deactivated used to
+   * tell the student to "Select a school first" — while its own description
+   * read "Sections offered by the <school>" — on a field marked required and
+   * disabled. That is an unsubmittable form telling the student to do the one
+   * thing they had already done.
+   */
+  const schoolHasNoSections = Boolean(selectedSchool) && sections.length === 0;
+
   const previousSchoolId = useRef(selectedSchoolId);
 
   useEffect(() => {
@@ -100,9 +111,11 @@ export function SchoolSectionFields<TFieldValues extends FieldValues>({
         label="Section"
         required
         description={
-          selectedSchool
-            ? `Sections offered by the ${selectedSchool.name}.`
-            : "Choose a school first."
+          !selectedSchool
+            ? "Choose a school first."
+            : schoolHasNoSections
+              ? `The ${selectedSchool.name} has no sections listed. Contact the challenge office so it can be added.`
+              : `Sections offered by the ${selectedSchool.name}.`
         }
       >
         {({ field, id, describedBy, invalid }) => (
@@ -118,7 +131,13 @@ export function SchoolSectionFields<TFieldValues extends FieldValues>({
               className="w-full"
             >
               <SelectValue
-                placeholder={sections.length === 0 ? "Select a school first" : "Select your section"}
+                placeholder={
+                  !selectedSchool
+                    ? "Select a school first"
+                    : schoolHasNoSections
+                      ? "No sections listed for this school"
+                      : "Select your section"
+                }
               />
             </SelectTrigger>
             <SelectContent>
