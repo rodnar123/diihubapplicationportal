@@ -29,7 +29,8 @@ export function StatTile({
   const toneClasses = {
     default: "bg-muted text-muted-foreground",
     info: "bg-info/10 text-info",
-    warning: "bg-warning/15 text-warning-foreground dark:text-warning",
+    // Not `--warning-foreground`: that is white, for a solid warning fill.
+    warning: "bg-warning/15 text-warning",
     success: "bg-success/10 text-success",
     danger: "bg-destructive/10 text-destructive",
   }[tone];

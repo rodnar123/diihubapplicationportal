@@ -133,10 +133,16 @@ export const STATUS_FILTER_ORDER: ApplicationStatus[] = [
  * Tailwind classes for the status badge, kept beside the metadata so a new
  * status cannot be added without deciding how it looks.
  */
+/**
+ * Every tone is the tone colour itself on a tint of that colour. Note that
+ * `--warning-foreground` is *not* the colour to use here: it is white, meant
+ * for text on a solid warning fill. On a 15% tint it rendered white-on-white,
+ * which put the "Revision Requested" badge at 1.24:1 in light mode.
+ */
 export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "border-border bg-muted text-muted-foreground",
   info: "border-info/30 bg-info/10 text-info",
-  warning: "border-warning/40 bg-warning/15 text-warning-foreground dark:text-warning",
+  warning: "border-warning/40 bg-warning/15 text-warning",
   success: "border-success/30 bg-success/10 text-success",
   danger: "border-destructive/30 bg-destructive/10 text-destructive",
 };
