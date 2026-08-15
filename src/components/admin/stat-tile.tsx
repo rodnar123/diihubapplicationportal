@@ -53,7 +53,10 @@ export function StatTile({
   }
 
   return (
-    <Card className="transition-colors hover:border-primary/40 hover:bg-accent/30">
+    // `hover:ring-*`, not `hover:border-*`: Card draws its edge as a `ring-1`
+    // and has no border width, so the old border-colour hover was a dead class
+    // and the tile's only hover cue was the faint background wash.
+    <Card className="transition-colors hover:bg-accent/30 hover:ring-primary/40">
       <Link
         href={href}
         className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

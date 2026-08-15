@@ -111,9 +111,27 @@ export function ApplicationFilters({
     setParam(key, next.length > 0 ? next.join(",") : null);
   };
 
+  /**
+   * Applied on blur as well as on Enter.
+   *
+   * Without the blur, typing a term and then reaching for any other control
+   * left the box showing text that was never applied — and the summary line
+   * below still read "N applications match your filters", so the screen
+   * claimed a filter that was not in the query. Blur is exactly the moment
+   * that divergence would otherwise become visible.
+   *
+   * Guarded against re-navigating when nothing changed, since blur fires on
+   * every pass through the field.
+   */
+  const commitSearch = () => {
+    const next = searchText.trim();
+    if (next === currentQuery) return;
+    setParam("q", next || null);
+  };
+
   const submitSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    setParam("q", searchText.trim() || null);
+    commitSearch();
   };
 
   const sections = schools.find((school) => school.id === selectedSchool)?.sections ?? [];
@@ -130,6 +148,7 @@ export function ApplicationFilters({
             type="search"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
+            onBlur={commitSearch}
             placeholder="Search ID, name, email, project, team…"
             aria-label="Search applications"
             className="pl-9"
