@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
@@ -74,30 +75,43 @@ export function ApplicantStep({
         </Alert>
       )}
 
-      <dl className="grid gap-4 rounded-lg border bg-muted/40 p-4 sm:grid-cols-3">
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">Full name</dt>
-          <dd className="mt-0.5 text-sm font-medium">{applicant.fullName}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">Student ID</dt>
-          <dd className="mt-0.5 font-mono text-sm font-medium">{applicant.studentId}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-xs font-medium text-muted-foreground">University email</dt>
-          <dd className="mt-0.5 truncate text-sm font-medium">{applicant.email}</dd>
-        </div>
-        <p className="text-xs text-muted-foreground sm:col-span-3">
+      <div className="space-y-4 rounded-lg border bg-muted/40 p-4">
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Full name</dt>
+            <dd className="mt-0.5 text-sm font-medium">{applicant.fullName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Student ID</dt>
+            <dd className="mt-0.5 font-mono text-sm font-medium">{applicant.studentId}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-xs font-medium text-muted-foreground">University email</dt>
+            {/* Wraps rather than truncates, like the summary: an address cut to
+                "…@student.pnguot.ac" is not something the reader can recover. */}
+            <dd className="mt-0.5 text-sm font-medium [overflow-wrap:anywhere]">
+              {applicant.email}
+            </dd>
+          </div>
+        </dl>
+
+        {/* The `<p>` used to sit directly inside the `<dl>`, which may only hold
+            dt/dd/div — browsers silently reparent it, and React then hydrates
+            against a tree the server did not describe. */}
+        <p className="text-xs text-muted-foreground">
           These come from your account.{" "}
-          <a
+          {/* A `Link`, not an `<a>`. A hard navigation tears the page down
+              without running React cleanup, so the step's pending autosave
+              would never flush and the last edits here would be lost. */}
+          <Link
             href={ROUTES.onboarding}
             className="underline underline-offset-4 hover:text-foreground"
           >
             Update your profile
-          </a>{" "}
+          </Link>{" "}
           if anything is wrong.
         </p>
-      </dl>
+      </div>
 
       <FieldGroup>
         <FormRow
