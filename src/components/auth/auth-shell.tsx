@@ -114,14 +114,22 @@ export function AuthShell({
       </aside>
 
       <div className="flex min-h-dvh flex-col lg:min-h-0">
+        {/*
+          `min-w-0` on the link and `shrink-0` on the controls are load-bearing
+          on a phone. A flex item defaults to `min-width: auto`, so without it
+          the lockup holds the full intrinsic width of "Papua New Guinea
+          University of Technology" — its own `truncate` never gets the chance
+          to fire — and the theme toggle is pushed past the right edge, giving
+          the page 50px of sideways scroll at 360px wide.
+        */}
         <header className="flex shrink-0 items-center gap-3 px-5 py-4 short:py-3 sm:px-8">
           <Link
             href={ROUTES.home}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            className="min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
           >
             <BrandLockup />
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {actions}
             <ThemeToggle />
           </div>

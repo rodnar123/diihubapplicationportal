@@ -36,13 +36,16 @@ export default async function OnboardingPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-muted/40">
       <header className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
+        {/* `min-w-0` / `shrink-0` for the same reason as the auth shell: without
+            them the lockup cannot shrink, its truncate never fires, and the
+            controls are pushed off the right edge of a phone. */}
         <Link
           href={ROUTES.home}
-          className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <BrandLockup />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
           <SignOutButton variant="ghost" size="sm" />
         </div>
