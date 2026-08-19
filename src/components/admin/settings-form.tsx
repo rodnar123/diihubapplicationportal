@@ -400,6 +400,32 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             </Field>
           </div>
 
+          <Field>
+            <FieldLabel htmlFor="closing-soon-days">Warn students this many days ahead</FieldLabel>
+            <Input
+              id="closing-soon-days"
+              type="number"
+              min={1}
+              max={90}
+              className="sm:w-40"
+              value={values["submission.closingSoonDays"]}
+              onChange={(event) =>
+                set("submission.closingSoonDays", Number(event.target.value))
+              }
+              aria-invalid={Boolean(errorFor("submission.closingSoonDays")) || undefined}
+            />
+            <FieldDescription>
+              {APP_SETTING_DESCRIPTIONS["submission.closingSoonDays"]} Before that, students see
+              the closing date as a quiet note.
+              {!values["submission.closesAt"] && (
+                <> Nothing is shown at all until a closing date is set above.</>
+              )}
+            </FieldDescription>
+            {errorFor("submission.closingSoonDays") && (
+              <FieldError>{errorFor("submission.closingSoonDays")}</FieldError>
+            )}
+          </Field>
+
           <Field orientation="horizontal">
             <Checkbox
               id="allow-withdraw"

@@ -8,6 +8,7 @@ import { ReviewSubmitPanel } from "@/components/application/steps/review-step";
 import { TeamStep } from "@/components/application/steps/team-step";
 import { VentureStep } from "@/components/application/steps/venture-step";
 import { ApplicationSummary } from "@/components/application/application-summary";
+import { SubmissionDeadlineAlert } from "@/components/application/submission-deadline-alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { assessCompleteness } from "@/domain/application/completeness";
 import type { ApplicationDto, ApplicantDto } from "@/domain/application/types";
@@ -209,17 +210,23 @@ export function ApplicationStepBody({
   })();
 
   return (
-    <Card>
-      <CardHeader>
-        {step.formSection && (
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {step.formSection}
-          </p>
-        )}
-        <CardTitle className="text-xl">{step.title}</CardTitle>
-        <CardDescription>{step.description}</CardDescription>
-      </CardHeader>
-      <CardContent>{body}</CardContent>
-    </Card>
+    <div className="space-y-6">
+      {/* Above the card, on every step: a team that never reaches the review
+          step is exactly the team that needs to know the window is closing. */}
+      <SubmissionDeadlineAlert settings={settings} editable={!readOnly} />
+
+      <Card>
+        <CardHeader>
+          {step.formSection && (
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {step.formSection}
+            </p>
+          )}
+          <CardTitle className="text-xl">{step.title}</CardTitle>
+          <CardDescription>{step.description}</CardDescription>
+        </CardHeader>
+        <CardContent>{body}</CardContent>
+      </Card>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 
 import { StatusBadge } from "@/components/application/status-badge";
 import { StatusTimeline } from "@/components/application/status-timeline";
+import { SubmissionDeadlineAlert } from "@/components/application/submission-deadline-alert";
 import { WithdrawApplicationDialog } from "@/components/application/withdraw-dialog";
 import { EmptyState } from "@/components/layout/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -121,6 +122,8 @@ export function StudentDashboardView({
           </AlertDescription>
         </Alert>
       )}
+
+      <SubmissionDeadlineAlert settings={settings} editable={editable} />
 
       {!application ? (
         <Card>

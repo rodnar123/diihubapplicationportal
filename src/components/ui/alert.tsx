@@ -11,6 +11,13 @@ const alertVariants = cva(
         default: "bg-card text-card-foreground",
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+        // Tinted rather than `bg-card`, so an approaching deadline reads as
+        // amber at a glance. `--warning-foreground` is not the colour to use
+        // for the text: it is white, meant for a solid warning fill, and on a
+        // 15% tint it renders white-on-white. Same convention as the status
+        // badges in `domain/application/status.ts`.
+        warning:
+          "border-warning/40 bg-warning/15 text-warning *:data-[slot=alert-description]:text-warning/90 *:[svg]:text-current",
       },
     },
     defaultVariants: {

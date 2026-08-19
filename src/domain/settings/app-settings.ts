@@ -38,6 +38,9 @@ export const appSettingsSchema = z.object({
   "submission.opensAt": z.string().datetime().nullable(),
   "submission.closesAt": z.string().datetime().nullable(),
 
+  /** How many days before `closesAt` the student's deadline notice turns amber. */
+  "submission.closingSoonDays": z.number().int().min(1).max(90),
+
   /** Whether teams may still edit after submitting (before review starts). */
   "submission.allowWithdraw": z.boolean(),
 });
@@ -80,6 +83,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 
   "submission.opensAt": null,
   "submission.closesAt": null,
+  "submission.closingSoonDays": 7,
   "submission.allowWithdraw": true,
 };
 
@@ -97,6 +101,8 @@ export const APP_SETTING_DESCRIPTIONS: Record<AppSettingKey, string> = {
   "declaration.mode": "Which declaration method(s) teams may use.",
   "submission.opensAt": "Submissions are rejected before this instant. Empty means no opening date.",
   "submission.closesAt": "Submissions are rejected after this instant. Empty means no closing date.",
+  "submission.closingSoonDays":
+    "How many days before the closing date the students' deadline notice turns amber.",
   "submission.allowWithdraw": "Allow teams to withdraw a submission that is not yet under review.",
 };
 
@@ -161,6 +167,68 @@ export function mergeAppSettings(rows: ReadonlyArray<{ key: string; value: unkno
   }
 
   return merged as AppSettings;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+export interface SubmissionDeadline {
+  closesAt: Date;
+  msRemaining: number;
+  hoursRemaining: number;
+  daysRemaining: number;
+  /** Inside `submission.closingSoonDays` — show this in amber. */
+  closingSoon: boolean;
+}
+
+/**
+ * The deadline a student still has time to meet.
+ *
+ * Returns `null` when no closing date is configured, or when it has already
+ * passed — a deadline in the past is not a countdown, it is a closed window,
+ * and {@link submissionWindow} is what reports that.
+ *
+ * Remaining time is measured from the instant, not from calendar days, so a
+ * deadline 25 hours away reads as "1 day" rather than being rounded up into
+ * a second day the team does not have.
+ *
+ * `closingSoon` is measured against `submission.closingSoonDays`, so an office
+ * that wants a fortnight's notice rather than a week changes it in the admin
+ * settings, not in a deployment.
+ */
+export function submissionDeadline(
+  settings: AppSettings,
+  now: Date = new Date(),
+): SubmissionDeadline | null {
+  const raw = settings["submission.closesAt"];
+  if (!raw) return null;
+
+  const closesAt = new Date(raw);
+  if (Number.isNaN(closesAt.getTime())) return null;
+
+  const msRemaining = closesAt.getTime() - now.getTime();
+  if (msRemaining <= 0) return null;
+
+  const daysRemaining = Math.floor(msRemaining / DAY_MS);
+
+  return {
+    closesAt,
+    msRemaining,
+    hoursRemaining: Math.floor(msRemaining / HOUR_MS),
+    daysRemaining,
+    closingSoon: msRemaining <= settings["submission.closingSoonDays"] * DAY_MS,
+  };
+}
+
+/** "in 3 days", "in 5 hours", "in under an hour". */
+export function describeTimeRemaining(deadline: SubmissionDeadline): string {
+  if (deadline.daysRemaining >= 1) {
+    return `in ${deadline.daysRemaining} day${deadline.daysRemaining === 1 ? "" : "s"}`;
+  }
+  if (deadline.hoursRemaining >= 1) {
+    return `in ${deadline.hoursRemaining} hour${deadline.hoursRemaining === 1 ? "" : "s"}`;
+  }
+  return "in under an hour";
 }
 
 /**
