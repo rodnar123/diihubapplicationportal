@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { parseApplicationQuery } from "@/domain/admin/application-query";
-import { getSessionUser, isReviewer } from "@/lib/auth/session";
+import { getSessionUser, isAdmin, isReviewer } from "@/lib/auth/session";
 import { rateLimit } from "@/lib/rate-limit";
 import { AUDIT_ACTIONS, recordAudit } from "@/services/audit/audit-log";
 import { findApplicationsForExport } from "@/services/admin/application-query";
@@ -46,9 +46,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const query = parseApplicationQuery(
+    const parsed = parseApplicationQuery(
       Object.fromEntries(request.nextUrl.searchParams.entries()),
     );
+
+    // Same gate as the screen: only an administrator can export the recycle bin.
+    const query = isAdmin(user.role) ? parsed : { ...parsed, deleted: false };
 
     const { ids, truncated } = await findApplicationsForExport(query, MAX_DOCUMENTS);
 

@@ -5,13 +5,14 @@ import { Download } from "lucide-react";
 import { ApplicationSummary } from "@/components/application/application-summary";
 import { StatusBadge } from "@/components/application/status-badge";
 import { StatusTimeline } from "@/components/application/status-timeline";
+import { DeleteApplicationButton } from "@/components/admin/application-delete-controls";
 import { CommentThread } from "@/components/admin/comment-thread";
 import { PrintLink } from "@/components/admin/print-trigger";
 import { ReviewPanel } from "@/components/admin/review-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireReviewer } from "@/lib/auth/session";
+import { isAdmin, requireReviewer } from "@/lib/auth/session";
 import { isAppError } from "@/lib/errors";
 import { ROUTES } from "@/lib/routes";
 import { AUDIT_ACTIONS, recordAudit } from "@/services/audit/audit-log";
@@ -151,6 +152,33 @@ export default async function AdminApplicationDetailPage({
               <StatusTimeline events={detail.statusHistory} />
             </CardContent>
           </Card>
+
+          {/*
+            Administrators only, and last on the page on purpose: a reviewer's
+            work is the decision panel at the top, and the control that removes
+            the entry outright should not sit next to it.
+          */}
+          {isAdmin(reviewer.role) && (
+            <Card className="border-destructive/30">
+              <CardHeader>
+                <CardTitle>Delete this application</CardTitle>
+                <CardDescription>
+                  Removes the entry from the console and from {applicant.fullName}&rsquo;s
+                  dashboard, and frees the team to start again this challenge year. It can
+                  be restored from the deleted list.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DeleteApplicationButton
+                  applicationId={id}
+                  referenceNumber={application.referenceNumber}
+                  projectTitle={application.projectTitle}
+                  ownerName={applicant.fullName}
+                  redirectTo={ROUTES.adminApplications}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </>

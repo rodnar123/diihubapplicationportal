@@ -106,4 +106,10 @@ export const RATE_LIMITS = {
    * in a loop hitting the database.
    */
   paletteSearch: { limit: 120, windowMs: 60 * 1000 },
+  /**
+   * Deleting entries and changing who may sign in. Deliberate, low-volume work,
+   * so the budget is small — an administrator clearing out a handful of test
+   * entries will never notice it, and a runaway script will.
+   */
+  adminDestructive: { limit: 40, windowMs: 10 * 60 * 1000 },
 } as const;

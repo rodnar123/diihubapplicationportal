@@ -5,13 +5,21 @@ import { z } from "zod";
 
 import { commentSchema, decisionSchema } from "@/domain/application/schemas";
 import { appSettingsSchema, type AppSettings } from "@/domain/settings/app-settings";
+import { Role } from "@/generated/prisma/enums";
 import { parseOrThrow, runAction } from "@/lib/action-helpers";
 import { requireAdminForAction, requireReviewerForAction } from "@/lib/auth/session";
 import { RATE_LIMITS, enforceRateLimit } from "@/lib/rate-limit";
 import { ROUTES } from "@/lib/routes";
 import { sanitizePlainText } from "@/lib/sanitize.server";
+import { deleteApplication, restoreApplication } from "@/services/admin/application-admin";
 import { searchApplicationsQuick } from "@/services/admin/application-query";
 import { addComment, recordDecision } from "@/services/admin/review-service";
+import {
+  restoreUser,
+  setUserActive,
+  softDeleteUser,
+  updateUserRole,
+} from "@/services/admin/user-admin";
 import { sendStatusChangeEmail } from "@/services/notifications/notification-service";
 import { updateAppSettings } from "@/services/settings/settings-service";
 
@@ -162,5 +170,139 @@ export async function searchApplicationsAction(term: string) {
     const trimmed = parseOrThrow(z.string().trim().min(2).max(100), term);
 
     return { results: await searchApplicationsQuick(trimmed) };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Destructive administration
+//
+// Everything below is `requireAdminForAction`, not `requireReviewerForAction`.
+// A reviewer assesses entries; removing one, or changing who may sign in at
+// all, is a different kind of authority. The services re-check the same rule,
+// because a Server Action is reachable by POST without going anywhere near the
+// button that is supposed to be the only way to call it.
+// ---------------------------------------------------------------------------
+
+const applicationIdSchema = z.string().trim().min(1).max(40);
+
+/** A short, optional note recorded with the deletion in the audit trail. */
+const deletionReasonSchema = z
+  .string()
+  .trim()
+  .max(500, "Keep the reason under 500 characters.")
+  .optional()
+  .nullable();
+
+export async function deleteApplicationAction(input: {
+  applicationId: string;
+  reason?: string | null;
+}) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`delete-application:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const applicationId = parseOrThrow(applicationIdSchema, input.applicationId);
+    const reason = parseOrThrow(deletionReasonSchema, input.reason ?? null);
+
+    const result = await deleteApplication(
+      admin,
+      applicationId,
+      sanitizePlainText(reason ?? null),
+    );
+
+    revalidateAdmin(applicationId);
+    // The owner's dashboard is now showing an entry that no longer exists.
+    revalidatePath(ROUTES.dashboard);
+    revalidatePath(ROUTES.application, "layout");
+
+    return result;
+  });
+}
+
+export async function restoreApplicationAction(input: { applicationId: string }) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`restore-application:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const applicationId = parseOrThrow(applicationIdSchema, input.applicationId);
+    const result = await restoreApplication(admin, applicationId);
+
+    revalidateAdmin(applicationId);
+    revalidatePath(ROUTES.dashboard);
+    revalidatePath(ROUTES.application, "layout");
+
+    return result;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// User administration
+// ---------------------------------------------------------------------------
+
+function revalidateUsers() {
+  revalidatePath(ROUTES.adminUsers);
+  revalidatePath(ROUTES.adminAudit);
+}
+
+const userIdSchema = z.string().trim().min(1).max(40);
+
+export async function updateUserRoleAction(input: { userId: string; role: unknown }) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`user-role:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const userId = parseOrThrow(userIdSchema, input.userId);
+    const role = parseOrThrow(z.enum(Role), input.role);
+
+    const result = await updateUserRole(admin, userId, role);
+
+    revalidateUsers();
+    return result;
+  });
+}
+
+export async function setUserActiveAction(input: { userId: string; isActive: boolean }) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`user-active:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const userId = parseOrThrow(userIdSchema, input.userId);
+    const isActive = parseOrThrow(z.boolean(), input.isActive);
+
+    const result = await setUserActive(admin, userId, isActive);
+
+    revalidateUsers();
+    return result;
+  });
+}
+
+export async function deleteUserAction(input: { userId: string; reason?: string | null }) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`user-delete:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const userId = parseOrThrow(userIdSchema, input.userId);
+    const reason = parseOrThrow(deletionReasonSchema, input.reason ?? null);
+
+    const result = await softDeleteUser(admin, userId, sanitizePlainText(reason ?? null));
+
+    revalidateUsers();
+    // Their entries stay, but the applications list renders the owner.
+    revalidateAdmin();
+
+    return result;
+  });
+}
+
+export async function restoreUserAction(input: { userId: string }) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`user-restore:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const userId = parseOrThrow(userIdSchema, input.userId);
+    const result = await restoreUser(admin, userId);
+
+    revalidateUsers();
+    return result;
   });
 }

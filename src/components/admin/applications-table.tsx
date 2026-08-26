@@ -14,8 +14,13 @@ import {
   ExternalLink,
   MessageSquare,
   Paperclip,
+  Trash2,
 } from "lucide-react";
 
+import {
+  DeleteApplicationButton,
+  RestoreApplicationButton,
+} from "@/components/admin/application-delete-controls";
 import { StatusBadge } from "@/components/application/status-badge";
 import { EmptyState } from "@/components/layout/empty-state";
 import { Button } from "@/components/ui/button";
@@ -81,6 +86,8 @@ export function ApplicationsTable({
   total,
   sort,
   direction,
+  canDelete = false,
+  showingDeleted = false,
 }: {
   rows: AdminApplicationRow[];
   page: number;
@@ -89,6 +96,14 @@ export function ApplicationsTable({
   total: number;
   sort: SortableColumn;
   direction: "asc" | "desc";
+  /**
+   * Whether the viewer is a full administrator. Only a presentation decision —
+   * the Server Action enforces the same rule, since a reviewer could otherwise
+   * POST to it directly.
+   */
+  canDelete?: boolean;
+  /** True when the table is listing the recycle bin rather than live entries. */
+  showingDeleted?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -125,28 +140,51 @@ export function ApplicationsTable({
       {
         id: "referenceNumber",
         header: "Reference",
-        cell: ({ row }) => (
-          <Link
-            href={ROUTES.adminApplication(row.original.id)}
-            className="font-mono text-xs font-medium underline-offset-4 hover:underline"
-          >
-            {row.original.referenceNumber ?? "Draft"}
-          </Link>
-        ),
+        /*
+          Deleted entries are shown as plain text, not links: the detail page
+          reads through `getApplicationDetail`, which filters them out, so every
+          such link would land on a 404 and read as data loss rather than as the
+          deletion the administrator performed a moment ago.
+        */
+        cell: ({ row }) =>
+          row.original.deletedAt ? (
+            <span className="font-mono text-xs font-medium text-muted-foreground">
+              {row.original.referenceNumber ?? "Draft"}
+            </span>
+          ) : (
+            <Link
+              href={ROUTES.adminApplication(row.original.id)}
+              className="font-mono text-xs font-medium underline-offset-4 hover:underline"
+            >
+              {row.original.referenceNumber ?? "Draft"}
+            </Link>
+          ),
       },
       {
         id: "projectTitle",
         header: "Project",
         cell: ({ row }) => (
           <div className="min-w-0 max-w-xs">
-            <Link
-              href={ROUTES.adminApplication(row.original.id)}
-              className="block truncate font-medium underline-offset-4 hover:underline"
-            >
-              {row.original.projectTitle ?? "Untitled venture"}
-            </Link>
-            {row.original.theme && (
-              <p className="truncate text-xs text-muted-foreground">{row.original.theme}</p>
+            {row.original.deletedAt ? (
+              <p className="truncate font-medium">
+                {row.original.projectTitle ?? "Untitled venture"}
+              </p>
+            ) : (
+              <Link
+                href={ROUTES.adminApplication(row.original.id)}
+                className="block truncate font-medium underline-offset-4 hover:underline"
+              >
+                {row.original.projectTitle ?? "Untitled venture"}
+              </Link>
+            )}
+            {row.original.deletedAt ? (
+              <p className="truncate text-xs text-muted-foreground">
+                Deleted {formatDate(row.original.deletedAt)}
+              </p>
+            ) : (
+              row.original.theme && (
+                <p className="truncate text-xs text-muted-foreground">{row.original.theme}</p>
+              )
             )}
           </div>
         ),
@@ -228,18 +266,45 @@ export function ApplicationsTable({
         id: "actions",
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
-          <Button asChild variant="ghost" size="icon">
-            <Link href={ROUTES.adminApplication(row.original.id)}>
-              <ExternalLink className="size-4" aria-hidden />
-              <span className="sr-only">
-                Open {row.original.referenceNumber ?? row.original.projectTitle ?? "application"}
-              </span>
-            </Link>
-          </Button>
+          <div className="flex items-center justify-end gap-0.5">
+            {/* A deleted entry has no detail page — the reader excludes it — so
+                the only thing to offer on one is putting it back. */}
+            {!row.original.deletedAt && (
+              <Button asChild variant="ghost" size="icon">
+                <Link href={ROUTES.adminApplication(row.original.id)}>
+                  <ExternalLink className="size-4" aria-hidden />
+                  <span className="sr-only">
+                    Open{" "}
+                    {row.original.referenceNumber ??
+                      row.original.projectTitle ??
+                      "application"}
+                  </span>
+                </Link>
+              </Button>
+            )}
+
+            {canDelete &&
+              (row.original.deletedAt ? (
+                <RestoreApplicationButton
+                  applicationId={row.original.id}
+                  referenceNumber={row.original.referenceNumber}
+                  projectTitle={row.original.projectTitle}
+                  presentation="icon"
+                />
+              ) : (
+                <DeleteApplicationButton
+                  applicationId={row.original.id}
+                  referenceNumber={row.original.referenceNumber}
+                  projectTitle={row.original.projectTitle}
+                  ownerName={row.original.applicantName}
+                  presentation="icon"
+                />
+              ))}
+          </div>
         ),
       },
     ],
-    [],
+    [canDelete],
   );
 
   const table = useTable({
@@ -250,7 +315,13 @@ export function ApplicationsTable({
   });
 
   if (rows.length === 0) {
-    return (
+    return showingDeleted ? (
+      <EmptyState
+        icon={Trash2}
+        title="Nothing has been deleted"
+        description="Deleted applications collect here, where an administrator can put them back."
+      />
+    ) : (
       <EmptyState
         icon={ClipboardList}
         title="No applications match"

@@ -35,6 +35,8 @@ export interface AdminApplicationRow {
   updatedAt: string;
   reviewedAt: string | null;
   reviewerName: string | null;
+  /** Non-null only in the recycle bin; the table offers restore instead of delete. */
+  deletedAt: string | null;
 }
 
 export interface AdminApplicationPage {
@@ -50,7 +52,12 @@ export interface AdminApplicationPage {
  * same filter the reviewer is looking at.
  */
 export function buildApplicationWhere(query: ApplicationQuery): Prisma.ApplicationWhereInput {
-  const where: Prisma.ApplicationWhereInput = { deletedAt: null };
+  // The recycle bin is the complement of the live set, never a superset of it:
+  // a deleted entry must not turn up in the normal list, and the live list must
+  // not appear in the bin.
+  const where: Prisma.ApplicationWhereInput = {
+    deletedAt: query.deleted ? { not: null } : null,
+  };
   const and: Prisma.ApplicationWhereInput[] = [];
 
   if (query.challengeYear) {
@@ -190,6 +197,7 @@ const listSelect = {
   submittedAt: true,
   updatedAt: true,
   reviewedAt: true,
+  deletedAt: true,
   school: { select: { name: true } },
   section: { select: { name: true } },
   reviewedBy: { select: { name: true } },
@@ -238,6 +246,7 @@ function toRow(record: ListRecord): AdminApplicationRow {
     updatedAt: record.updatedAt.toISOString(),
     reviewedAt: record.reviewedAt?.toISOString() ?? null,
     reviewerName: record.reviewedBy?.name ?? null,
+    deletedAt: record.deletedAt?.toISOString() ?? null,
   };
 }
 

@@ -67,6 +67,26 @@ export const applicationQuerySchema = z.object({
 
   challengeYear: z.coerce.number().int().min(2000).max(2100).optional(),
 
+  /**
+   * Lists the recycle bin instead of the live set.
+   *
+   * Deletion is a soft delete, so without this the deleted rows would be
+   * unreachable from the console and only restorable from the database. The
+   * flag is honoured by the query builder, which the exports share — so a CSV
+   * taken while viewing deleted entries contains those entries and no others.
+   *
+   * Reviewers must never reach it: the page and the export routes reset it to
+   * false for anyone who is not a full administrator, because a hand-edited URL
+   * is the only other way to set it.
+   */
+  deleted: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((raw) => {
+      const value = Array.isArray(raw) ? raw[0] : raw;
+      return value === "1" || value === "true";
+    }),
+
   sort: z.enum(SORTABLE_COLUMNS).default("submittedAt"),
   dir: z.enum(["asc", "desc"]).default("desc"),
 
@@ -113,6 +133,7 @@ export function buildApplicationQueryString(
   if (merged.from) params.set("from", merged.from);
   if (merged.to) params.set("to", merged.to);
   if (merged.challengeYear) params.set("challengeYear", String(merged.challengeYear));
+  if (merged.deleted) params.set("deleted", "1");
   if (merged.sort && merged.sort !== "submittedAt") params.set("sort", merged.sort);
   if (merged.dir && merged.dir !== "desc") params.set("dir", merged.dir);
   if (merged.page && merged.page > 1) params.set("page", String(merged.page));

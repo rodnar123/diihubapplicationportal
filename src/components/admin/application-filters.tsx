@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Filter, Loader2, Search, X } from "lucide-react";
+import { Filter, Loader2, Search, Trash2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,9 +39,12 @@ const ALL_SCHOOLS = "__all__";
 export function ApplicationFilters({
   schools,
   totalResults,
+  canViewDeleted = false,
 }: {
   schools: SchoolOption[];
   totalResults: number;
+  /** Administrators can swap the list for the recycle bin. */
+  canViewDeleted?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -75,6 +78,9 @@ export function ApplicationFilters({
   const selectedSection = searchParams.get("section") ?? "";
   const fromDate = searchParams.get("from") ?? "";
   const toDate = searchParams.get("to") ?? "";
+
+  const deletedParam = searchParams.get("deleted");
+  const showingDeleted = canViewDeleted && (deletedParam === "1" || deletedParam === "true");
 
   const activeCount =
     selectedStatuses.length +
@@ -335,7 +341,11 @@ export function ApplicationFilters({
             size="sm"
             onClick={() =>
               startTransition(() => {
-                router.replace(pathname, { scroll: false });
+                // `deleted` survives a clear: it selects *which list* is being
+                // filtered, not one of the filters on it. Dropping it would
+                // silently walk the administrator out of the recycle bin.
+                const target = showingDeleted ? `${pathname}?deleted=1` : pathname;
+                router.replace(target, { scroll: false });
               })
             }
           >
@@ -343,12 +353,30 @@ export function ApplicationFilters({
             Clear all
           </Button>
         )}
+
+        {canViewDeleted && (
+          <Button
+            variant={showingDeleted ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={showingDeleted}
+            className={showingDeleted ? "ml-auto" : "ml-auto text-muted-foreground"}
+            onClick={() => setParam("deleted", showingDeleted ? null : "1")}
+          >
+            <Trash2 className="size-4" aria-hidden />
+            {showingDeleted ? "Viewing deleted" : "Deleted"}
+          </Button>
+        )}
       </div>
 
       <p className="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
         {isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-        {totalResults} application{totalResults === 1 ? "" : "s"}
-        {hasAnyFilter ? " match your filters" : " in total"}
+        {totalResults} {showingDeleted ? "deleted " : ""}application
+        {totalResults === 1 ? "" : "s"}
+        {hasAnyFilter
+          ? totalResults === 1
+            ? " matches your filters"
+            : " match your filters"
+          : " in total"}
       </p>
     </div>
   );

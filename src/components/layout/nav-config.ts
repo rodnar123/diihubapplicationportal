@@ -5,6 +5,7 @@ import {
   ListChecks,
   ScrollText,
   Settings,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,7 +29,8 @@ export type NavIconName =
   | "applications"
   | "settings"
   | "audit"
-  | "preview";
+  | "preview"
+  | "users";
 
 /**
  * Name → component. Safe to import anywhere; only ever *dereferenced* inside a
@@ -41,6 +43,7 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   settings: Settings,
   audit: ScrollText,
   preview: Eye,
+  users: Users,
 };
 
 export interface NavItem {
@@ -110,6 +113,13 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     label: "Administration",
     items: [
+      {
+        label: "Users",
+        href: ROUTES.adminUsers,
+        icon: "users",
+        description: "Grant or withdraw access, change roles, remove accounts",
+        adminOnly: true,
+      },
       {
         label: "Settings",
         href: ROUTES.adminSettings,

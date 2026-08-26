@@ -12,7 +12,7 @@ import {
   buildApplicationQueryString,
   parseApplicationQuery,
 } from "@/domain/admin/application-query";
-import { requireReviewer } from "@/lib/auth/session";
+import { isAdmin, requireReviewer } from "@/lib/auth/session";
 import { ROUTES } from "@/lib/routes";
 import { findApplications } from "@/services/admin/application-query";
 import { getSchoolsWithSections } from "@/services/reference/reference-data";
@@ -24,10 +24,18 @@ export default async function AdminApplicationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireReviewer();
+  const viewer = await requireReviewer();
+  const canManage = isAdmin(viewer.role);
 
   const raw = await searchParams;
-  const query = parseApplicationQuery(raw);
+  const parsed = parseApplicationQuery(raw);
+
+  /*
+   * The recycle bin is an administrator's view. `?deleted=1` is just a URL, so
+   * the flag is reset here rather than trusted — a reviewer who tries it gets
+   * the normal list, not an error, because there is nothing to accuse them of.
+   */
+  const query = canManage ? parsed : { ...parsed, deleted: false };
 
   const [result, schools] = await Promise.all([
     findApplications(query),
@@ -40,8 +48,12 @@ export default async function AdminApplicationsPage({
   return (
     <>
       <PageHeader
-        title="Applications"
-        description="Search, filter and review every entry submitted to the challenge."
+        title={query.deleted ? "Deleted applications" : "Applications"}
+        description={
+          query.deleted
+            ? "Entries an administrator has removed. Nothing here is erased — restore any of them to put it back in the console."
+            : "Search, filter and review every entry submitted to the challenge."
+        }
         breadcrumbs={[{ label: "Admin", href: ROUTES.admin }, { label: "Applications" }]}
         actions={
           <>
@@ -64,7 +76,11 @@ export default async function AdminApplicationsPage({
       <Card>
         <CardContent className="space-y-6">
           <Suspense fallback={<Skeleton className="h-20 w-full" />}>
-            <ApplicationFilters schools={schools} totalResults={result.total} />
+            <ApplicationFilters
+              schools={schools}
+              totalResults={result.total}
+              canViewDeleted={canManage}
+            />
           </Suspense>
 
           <Suspense fallback={<Skeleton className="h-96 w-full" />}>
@@ -76,6 +92,8 @@ export default async function AdminApplicationsPage({
               total={result.total}
               sort={query.sort}
               direction={query.dir}
+              canDelete={canManage}
+              showingDeleted={query.deleted}
             />
           </Suspense>
         </CardContent>

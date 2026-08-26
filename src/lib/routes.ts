@@ -32,6 +32,7 @@ export const ROUTES = {
   adminApplicationPrint: (id: string) => `/admin/applications/${id}/print`,
   adminSettings: "/admin/settings",
   adminAudit: "/admin/audit",
+  adminUsers: "/admin/users",
   /**
    * The student portal as staff see it: the real dashboard and the real wizard,
    * rendered read-only from a blank in-memory entry. Under `/admin` on purpose,
