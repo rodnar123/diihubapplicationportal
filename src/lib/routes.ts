@@ -33,6 +33,10 @@ export const ROUTES = {
   adminSettings: "/admin/settings",
   adminAudit: "/admin/audit",
   adminUsers: "/admin/users",
+  /** The signed-in reviewer's own allocation of work. */
+  adminReviewQueue: "/admin/queue",
+  /** The cohort ranked by aggregate score. Advisory — it decides nothing. */
+  adminLeaderboard: "/admin/leaderboard",
   /**
    * The student portal as staff see it: the real dashboard and the real wizard,
    * rendered read-only from a blank in-memory entry. Under `/admin` on purpose,

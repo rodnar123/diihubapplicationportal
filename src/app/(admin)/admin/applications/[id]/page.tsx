@@ -9,6 +9,8 @@ import { DeleteApplicationButton } from "@/components/admin/application-delete-c
 import { CommentThread } from "@/components/admin/comment-thread";
 import { PrintLink } from "@/components/admin/print-trigger";
 import { ReviewPanel } from "@/components/admin/review-panel";
+import { AssignReviewers } from "@/components/admin/assign-reviewers";
+import { ScorecardPanel } from "@/components/admin/scorecard-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +19,7 @@ import { isAppError } from "@/lib/errors";
 import { ROUTES } from "@/lib/routes";
 import { AUDIT_ACTIONS, recordAudit } from "@/services/audit/audit-log";
 import { getApplicationDetail } from "@/services/admin/review-service";
+import { getPanelMembers, getReviewPanel } from "@/services/admin/scoring-service";
 
 export async function generateMetadata({
   params,
@@ -51,6 +54,13 @@ export default async function AdminApplicationDetailPage({
   }
 
   const { application, applicant, schoolName, sectionName, sectionNameById } = detail;
+
+  // Independent of each other and of the detail read above, so they go together
+  // rather than stacking three round trips to the pooler on one render.
+  const [panel, panelMembers] = await Promise.all([
+    getReviewPanel(reviewer, id),
+    isAdmin(reviewer.role) ? getPanelMembers() : Promise.resolve([]),
+  ]);
 
   // Viewing a student's submission is itself an auditable event.
   await recordAudit({
@@ -130,6 +140,30 @@ export default async function AdminApplicationDetailPage({
               />
             </CardContent>
           </Card>
+
+          {/*
+            Below the decision panel, not above it. The order is the argument:
+            a reviewer decides, and the marks inform that — putting a percentage
+            first would invite the panel to read the number as the verdict.
+          */}
+          <ScorecardPanel
+            criteria={panel.criteria}
+            cards={panel.cards}
+            aggregate={panel.score}
+          />
+
+          {isAdmin(reviewer.role) && (
+            <AssignReviewers
+              applicationId={id}
+              members={panelMembers}
+              assigned={panel.cards.map((card) => ({
+                assignmentId: card.assignmentId,
+                reviewerId: card.reviewerId,
+                reviewerName: card.reviewerName,
+                status: card.status,
+              }))}
+            />
+          )}
 
           <Card>
             <CardHeader>

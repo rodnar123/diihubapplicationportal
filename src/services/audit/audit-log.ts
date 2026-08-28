@@ -38,6 +38,14 @@ export const AUDIT_ACTIONS = {
   declarationRecorded: "declaration.recorded",
   commentAdded: "comment.added",
   settingsUpdated: "settings.updated",
+  reviewAssigned: "review.assigned",
+  reviewUnassigned: "review.unassigned",
+  reviewAutoAssigned: "review.auto_assigned",
+  reviewScored: "review.scored",
+  reviewReopened: "review.reopened",
+  reviewRecused: "review.recused",
+  rubricUpdated: "rubric.updated",
+  teamMembershipClaimed: "team.membership_claimed",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

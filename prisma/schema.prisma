@@ -71,6 +71,20 @@ enum CommentVisibility {
   INTERNAL
 }
 
+/// Where one reviewer has got to with one application.
+///
+/// The distinction that matters is SUBMITTED: until a reviewer commits, their
+/// marks are a working draft and are deliberately excluded from the aggregate,
+/// so a half-scored entry cannot drag a ranking around while the panel works.
+enum ReviewAssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  /// The reviewer stepped away — they supervise the team, taught the members,
+  /// or otherwise should not be marking this entry.
+  RECUSED
+}
+
 enum NotificationType {
   APPLICATION_SUBMITTED
   APPLICATION_RESUBMITTED
@@ -116,6 +130,9 @@ model User {
   auditLogs          AuditLog[]
   uploadedAttachments Attachment[]
   settingUpdates     AppSetting[]
+  reviewAssignments  ReviewAssignment[] @relation("ReviewAssignmentReviewer")
+  assignmentsMade    ReviewAssignment[] @relation("ReviewAssignmentAssigner")
+  teamMemberships    TeamMember[]
 
   @@index([role])
   @@index([deletedAt])
@@ -268,6 +285,7 @@ model Application {
   statusHistory StatusHistory[]
   comments      Comment[]
   notifications Notification[]
+  assignments   ReviewAssignment[]
 
   /// A student may hold at most one application per challenge year. Enforced
   /// as a partial unique index in the migration so that soft-deleted rows do
@@ -310,6 +328,19 @@ model TeamMember {
   id     String @id @default(cuid())
   teamId String
 
+  /// The account this roster line belongs to, once the member has signed in
+  /// and claimed it.
+  ///
+  /// Nullable because the leader types the roster from memory before anyone
+  /// else has logged in — `studentId` is what they know, and it is the only
+  /// thing available at that moment. The link is made later, when the named
+  /// student signs in and their profile's student number matches this row.
+  ///
+  /// Until then `studentId` is free text, which is why the "one student, one
+  /// team" rule can only compare typed strings. Once linked, the rule has a
+  /// real identity to enforce against.
+  userId String?
+
   studentId String
   firstName String
   surname   String
@@ -329,10 +360,12 @@ model TeamMember {
 
   team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([teamId, studentId])
   @@index([studentId])
   @@index([sectionId])
+  @@index([userId])
   @@map("team_members")
 }
 
@@ -389,6 +422,122 @@ model Attachment {
   @@index([applicationId, kind])
   @@index([deletedAt])
   @@map("attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Review panel: rubric, assignment and scoring
+//
+// The status machine answers "what happened to this entry". None of it answers
+// "which of these sixty entries is best", which is the question a competition
+// actually has to settle. These three tables are that second answer, and they
+// sit *beside* the decision rather than gating it: a panel can still approve an
+// entry outright, and an aggregate score never changes a status on its own.
+// ---------------------------------------------------------------------------
+
+/// One line of the marking rubric.
+///
+/// Reference data rather than an enum, for the same reason School and Section
+/// are tables: the challenge office reweights the rubric between cycles and
+/// must not need a migration to do it.
+model ReviewCriterion {
+  id String @id @default(cuid())
+
+  /// Stable machine name, e.g. "INNOVATION". Unique within a challenge year.
+  code        String
+  name        String
+  description String?
+
+  /// Relative weight in the aggregate. Integers so that a rubric summing to
+  /// 100 can be read straight off as percentages.
+  weight Int @default(1)
+
+  /// Highest mark a reviewer may award on this line. 5 and 10 are both common
+  /// and the domain does not care which, so it is per-criterion.
+  maxValue Int @default(5)
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  /// Rubrics are versioned by cycle. Editing next year's criteria must not
+  /// retroactively rescore a cohort that has already been decided, so a new
+  /// year gets new rows rather than edits to the old ones.
+  challengeYear Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scores Score[]
+
+  @@unique([challengeYear, code])
+  @@index([challengeYear, isActive, sortOrder])
+  @@map("review_criteria")
+}
+
+/// One reviewer's allocation of one application.
+///
+/// Distinct from `Application.reviewedById`, which records who *decided* and is
+/// written after the fact. This is the work list: who is expected to look at
+/// what, and how far they have got.
+model ReviewAssignment {
+  id String @id @default(cuid())
+
+  applicationId String
+  reviewerId    String
+
+  status ReviewAssignmentStatus @default(PENDING)
+
+  /// Set when the reviewer commits. Until then their marks are a draft and are
+  /// excluded from every aggregate.
+  submittedAt DateTime?
+
+  /// Required when `status` is RECUSED, so a conflict of interest leaves a
+  /// record rather than a silently missing score.
+  recusedReason String?
+
+  /// Who allocated the work. Null for a self-claimed entry.
+  assignedById String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewer    User        @relation("ReviewAssignmentReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  assignedBy  User?       @relation("ReviewAssignmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  scores      Score[]
+
+  /// One allocation per reviewer per application. Enforced as a partial unique
+  /// index in the migration so a withdrawn allocation can be re-made.
+  @@index([applicationId, reviewerId])
+  @@index([reviewerId, status])
+  @@index([deletedAt])
+  @@map("review_assignments")
+}
+
+/// One reviewer's mark against one criterion.
+model Score {
+  id String @id @default(cuid())
+
+  assignmentId String
+  criterionId  String
+
+  /// Bounded by the criterion's `maxValue`, checked in the domain and by a
+  /// CHECK constraint that a raw query cannot get around.
+  value Int
+
+  /// Optional justification. Reviewers are asked for one on the low and high
+  /// ends, where a bare number is least defensible if a student appeals.
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment ReviewAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  criterion  ReviewCriterion  @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, criterionId])
+  @@index([criterionId])
+  @@map("scores")
 }
 
 model StatusHistory {

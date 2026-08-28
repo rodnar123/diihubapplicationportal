@@ -1,10 +1,12 @@
 import {
+  ClipboardCheck,
   Eye,
   FileText,
   LayoutDashboard,
   ListChecks,
   ScrollText,
   Settings,
+  Trophy,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -30,7 +32,9 @@ export type NavIconName =
   | "settings"
   | "audit"
   | "preview"
-  | "users";
+  | "users"
+  | "queue"
+  | "leaderboard";
 
 /**
  * Name → component. Safe to import anywhere; only ever *dereferenced* inside a
@@ -44,6 +48,8 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   audit: ScrollText,
   preview: Eye,
   users: Users,
+  queue: ClipboardCheck,
+  leaderboard: Trophy,
 };
 
 export interface NavItem {
@@ -100,6 +106,18 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: "applications",
         description: "Search, filter, review and export submissions",
         matchPrefix: true,
+      },
+      {
+        label: "My queue",
+        href: ROUTES.adminReviewQueue,
+        icon: "queue",
+        description: "Entries allocated to you, and how far you have got",
+      },
+      {
+        label: "Ranking",
+        href: ROUTES.adminLeaderboard,
+        icon: "leaderboard",
+        description: "The cohort ordered by panel score — advisory, not a decision",
       },
       {
         label: "Student portal",
