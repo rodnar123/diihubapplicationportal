@@ -15,6 +15,7 @@ import { MAX_ATTEMPTS, backoffMs } from "@/lib/db/transient";
 import { formatDateTime } from "@/lib/format";
 import { AppError, conflict, forbidden, invalidState, notFound } from "@/lib/errors";
 import { AUDIT_ACTIONS, recordAudit, requestContext } from "@/services/audit/audit-log";
+import { findMembershipConflicts } from "@/services/application/membership-service";
 import { getAppSettings } from "@/services/settings/settings-service";
 import {
   applicationInclude,
@@ -269,22 +270,17 @@ export async function saveTeam(
         },
         select: { id: true },
       }),
-      tx.teamMember.findMany({
-        where: {
-          deletedAt: null,
-          studentId: { in: rosterIds },
-          team: {
-            deletedAt: null,
-            applicationId: { not: applicationId },
-            application: {
-              challengeYear,
-              deletedAt: null,
-              status: { not: ApplicationStatus.WITHDRAWN },
-            },
-          },
-        },
-        select: { studentId: true, team: { select: { name: true } } },
-      }),
+      /*
+       * Checks the roster by student number *and* by the account each number
+       * resolves to.
+       *
+       * The number alone was all this could do before roster lines carried an
+       * identity, and a transposed digit walks straight past it: "25530061" and
+       * "2553O061" look like two students. Once both lines are claimed by the
+       * same account they are provably one person, and the second check catches
+       * what the first cannot.
+       */
+      findMembershipConflicts(tx, { applicationId, challengeYear, studentIds: rosterIds }),
     ]);
 
     if (duplicateName) {
@@ -297,17 +293,20 @@ export async function saveTeam(
       const fieldErrors: Record<string, string[]> = {};
 
       for (const clash of clashes) {
+        // A clash found by account rather than by number says something the
+        // leader cannot see from the form: the number they typed is not the one
+        // on the other team, but it is the same person.
+        const message = clash.byIdentity
+          ? `This student already competes with team "${clash.teamName}" under a different student number.`
+          : `This student is already registered with team "${clash.teamName}".`;
+
         if (clash.studentId === payload.leaderStudentId) {
-          fieldErrors.leaderStudentId = [
-            `This student is already registered with team "${clash.team.name}".`,
-          ];
+          fieldErrors.leaderStudentId = [message];
           continue;
         }
         const index = payload.members.findIndex((m) => m.studentId === clash.studentId);
         if (index >= 0) {
-          fieldErrors[`members.${index}.studentId`] = [
-            `This student is already registered with team "${clash.team.name}".`,
-          ];
+          fieldErrors[`members.${index}.studentId`] = [message];
         }
       }
 
@@ -338,10 +337,32 @@ export async function saveTeam(
     // insert is simpler and cheaper than diffing rows.
     await tx.teamMember.deleteMany({ where: { teamId: team.id } });
 
+    /*
+     * Re-derive the account link rather than carrying it across the delete.
+     *
+     * Replacing the roster drops the `userId` claims with the old rows, so
+     * without this a team save would silently unlink every member and the
+     * identity-aware conflict check above would quietly degrade to the string
+     * comparison it replaced. Re-deriving from `StudentProfile` is also more
+     * correct than preserving: it picks up a member who has signed in since the
+     * last save, which is the common case for a roster typed before the team
+     * had accounts.
+     */
+    const profiles = await tx.studentProfile.findMany({
+      where: { studentId: { in: rosterIds } },
+      select: { userId: true, studentId: true },
+    });
+    const userIdByStudentId = new Map(
+      profiles.map((profile) => [profile.studentId, profile.userId]),
+    );
+
     await tx.teamMember.createMany({
       data: [
         {
           teamId: team.id,
+          // The leader is the caller, so their account is known outright rather
+          // than looked up.
+          userId: user.id,
           studentId: payload.leaderStudentId,
           firstName: payload.leaderName.split(/\s+/)[0] ?? payload.leaderName,
           surname: payload.leaderName.split(/\s+/).slice(1).join(" ") || payload.leaderName,
@@ -354,6 +375,7 @@ export async function saveTeam(
         },
         ...payload.members.map((member, index) => ({
           teamId: team.id,
+          userId: userIdByStudentId.get(member.studentId) ?? null,
           studentId: member.studentId,
           firstName: member.firstName,
           surname: member.surname,

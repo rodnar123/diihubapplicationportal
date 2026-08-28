@@ -11,6 +11,7 @@ import { conflict, forbidden } from "@/lib/errors";
 import { ROUTES } from "@/lib/routes";
 import { sanitizePlainText } from "@/lib/sanitize.server";
 import { AUDIT_ACTIONS, recordAudit } from "@/services/audit/audit-log";
+import { claimTeamMemberships } from "@/services/application/membership-service";
 
 /**
  * Completes (or edits) the student profile that Section A of every
@@ -63,6 +64,8 @@ export async function saveStudentProfile(values: unknown) {
     const firstName = sanitizePlainText(input.firstName) ?? input.firstName;
     const surname = sanitizePlainText(input.surname) ?? input.surname;
 
+    let claimed = 0;
+
     await prisma.$transaction(async (tx) => {
       await tx.studentProfile.upsert({
         where: { userId: user.id },
@@ -93,6 +96,18 @@ export async function saveStudentProfile(values: unknown) {
         where: { id: user.id },
         data: { name: `${firstName} ${surname}`.trim() },
       });
+
+      /*
+       * Attach this account to any roster line a team leader has already typed
+       * their student number onto.
+       *
+       * This is the moment it becomes possible: the student number is what
+       * links the two, and this action is where the portal first learns it.
+       * Inside the transaction so a claim cannot survive a profile write that
+       * rolls back — the link would then point at a student number the account
+       * no longer holds.
+       */
+      claimed = await claimTeamMemberships(tx, user.id, input.studentId);
     });
 
     await recordAudit({
@@ -103,6 +118,16 @@ export async function saveStudentProfile(values: unknown) {
       actorEmail: user.email,
       metadata: { studentId: input.studentId },
     });
+
+    if (claimed > 0) {
+      await recordAudit({
+        action: AUDIT_ACTIONS.teamMembershipClaimed,
+        entityType: "TeamMember",
+        actorId: user.id,
+        actorEmail: user.email,
+        metadata: { studentId: input.studentId, claimed },
+      });
+    }
 
     revalidatePath(ROUTES.onboarding);
     revalidatePath(ROUTES.dashboard);

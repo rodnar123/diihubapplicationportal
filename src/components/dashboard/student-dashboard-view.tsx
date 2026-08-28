@@ -44,6 +44,16 @@ export interface DashboardComment {
   createdAt: string;
 }
 
+export interface TeamMembershipSummary {
+  applicationId: string;
+  referenceNumber: string | null;
+  projectTitle: string | null;
+  teamName: string;
+  status: ApplicationStatus;
+  leaderName: string;
+  role: string | null;
+}
+
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return null;
   return formatDateTime(value);
@@ -67,6 +77,7 @@ export function StudentDashboardView({
   settings,
   statusHistory,
   sharedComments,
+  memberships = [],
   interactive = true,
   applicationHref = ROUTES.application,
 }: {
@@ -75,6 +86,8 @@ export function StudentDashboardView({
   settings: AppSettings;
   statusHistory: DashboardStatusEvent[];
   sharedComments: DashboardComment[];
+  /** Entries this student is named on but does not own. */
+  memberships?: TeamMembershipSummary[];
   /** Off for the preview: no real entry stands behind these controls. */
   interactive?: boolean;
   /** Where "continue my application" goes. */
@@ -274,6 +287,55 @@ export function StudentDashboardView({
             </Card>
           )}
         </div>
+      )}
+
+      {/*
+        Entries this student is on somebody else's team for.
+        Outside the `application &&` block on purpose: a member who owns no
+        entry of their own is exactly the person who needs to see this, and
+        until roster lines carried an account the portal had no way to show
+        them anything at all.
+      */}
+      {memberships.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="size-4" aria-hidden />
+              {memberships.length === 1 ? "You are on a team" : "Teams you are on"}
+            </CardTitle>
+            <CardDescription>
+              Entries you are named on. Only the team leader can edit and submit them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3">
+              {memberships.map((membership) => (
+                <li
+                  key={membership.applicationId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {membership.projectTitle ?? "Untitled venture"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Team {membership.teamName} · led by {membership.leaderName}
+                      {membership.role ? ` · you are ${membership.role}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {membership.referenceNumber && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {membership.referenceNumber}
+                      </span>
+                    )}
+                    <StatusBadge status={membership.status} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
     </>
   );
