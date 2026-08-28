@@ -11,6 +11,8 @@ import {
 
 import { StatusBadge } from "@/components/application/status-badge";
 import { BreakdownTabs } from "@/components/admin/breakdown-tabs";
+import { CohortComparisonStrip } from "@/components/admin/cohort-comparison-strip";
+import { CohortSwitcher } from "@/components/admin/cohort-switcher";
 import { CategoryBarChart, SubmissionTrendChart } from "@/components/admin/charts";
 import { StatTile } from "@/components/admin/stat-tile";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -24,7 +26,7 @@ import { requireReviewer } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { getAdminStatistics } from "@/services/admin/statistics";
-import { getAppSettings } from "@/services/settings/settings-service";
+import { compareCohorts, listCohorts, resolveCohortYear } from "@/services/admin/cohort-service";
 
 export const metadata: Metadata = { title: "Admin dashboard" };
 
@@ -33,11 +35,30 @@ function applicationsHref(status?: ApplicationStatus[]) {
   return `${ROUTES.adminApplications}?status=${status.join(",")}`;
 }
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   await requireReviewer();
 
-  const settings = await getAppSettings();
-  const stats = await getAdminStatistics(settings["challenge.year"]);
+  const { year } = await searchParams;
+
+  /*
+   * The cycle comes from the query string, not from settings.
+   *
+   * `challengeYear` has always been on the row and `getAdminStatistics` has
+   * always taken one — but every caller passed the current setting, so rolling
+   * the year forward made the previous cohort unreachable. The data was never
+   * gone; nothing could ask for it.
+   */
+  const challengeYear = await resolveCohortYear(year);
+
+  const [stats, cohorts, comparison] = await Promise.all([
+    getAdminStatistics(challengeYear),
+    listCohorts(),
+    compareCohorts(challengeYear),
+  ]);
 
   const statusChartData = stats.byStatus
     .filter((entry) => entry.count > 0)
@@ -52,14 +73,31 @@ export default async function AdminDashboardPage() {
         title="Challenge dashboard"
         description={`${CHALLENGE_NAME} ${stats.challengeYear} — ${stats.total} application${stats.total === 1 ? "" : "s"} across ${stats.totalParticipants} registered participant${stats.totalParticipants === 1 ? "" : "s"}.`}
         actions={
-          <Button asChild>
-            <Link href={ROUTES.adminApplications}>
-              <ClipboardList className="size-4" aria-hidden />
-              Review applications
-            </Link>
-          </Button>
+          <>
+            <CohortSwitcher cohorts={cohorts} selected={challengeYear} />
+            <Button asChild>
+              <Link href={ROUTES.adminApplications}>
+                <ClipboardList className="size-4" aria-hidden />
+                Review applications
+              </Link>
+            </Button>
+          </>
         }
       />
+
+      {/*
+        Only once there is a previous cycle to compare against. A
+        year-over-year strip in the first year of a challenge is four dashes
+        pretending to be information.
+      */}
+      {comparison?.previous && comparison.delta && (
+        <CohortComparisonStrip
+          currentYear={challengeYear}
+          previousYear={comparison.previous.challengeYear}
+          current={comparison.current}
+          delta={comparison.delta}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatTile

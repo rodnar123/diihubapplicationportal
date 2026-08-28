@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, Trophy } from "lucide-react";
 
 import { AutoAssignControl } from "@/components/admin/auto-assign-control";
+import { CohortSwitcher } from "@/components/admin/cohort-switcher";
 import { EmptyState } from "@/components/layout/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import {
 import { isAdmin, requireReviewer } from "@/lib/auth/session";
 import { ROUTES } from "@/lib/routes";
 import { getLeaderboard } from "@/services/admin/scoring-service";
-import { getAppSettings } from "@/services/settings/settings-service";
+import { listCohorts, resolveCohortYear } from "@/services/admin/cohort-service";
 
 export const metadata: Metadata = { title: "Ranking" };
 
@@ -30,9 +31,22 @@ export const metadata: Metadata = { title: "Ranking" };
  * decide. Entries nobody has marked sit at the bottom without a rank rather
  * than at zero, for the same reason.
  */
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   const viewer = await requireReviewer();
-  const [rows, settings] = await Promise.all([getLeaderboard(viewer), getAppSettings()]);
+  const { year } = await searchParams;
+
+  // Same `?year=` the dashboard uses, so switching cycle on one screen and
+  // navigating to the other does not silently drop back to the current cohort.
+  const challengeYear = await resolveCohortYear(year);
+
+  const [rows, cohorts] = await Promise.all([
+    getLeaderboard(viewer, challengeYear),
+    listCohorts(),
+  ]);
 
   const ranked = rows.filter((row) => row.rank !== null);
   const unscored = rows.filter((row) => row.rank === null);
@@ -41,7 +55,8 @@ export default async function LeaderboardPage() {
     <>
       <PageHeader
         title="Ranking"
-        description={`${settings["challenge.year"]} cycle · ${ranked.length} scored, ${unscored.length} awaiting marks`}
+        description={`${challengeYear} cycle · ${ranked.length} scored, ${unscored.length} awaiting marks`}
+        actions={<CohortSwitcher cohorts={cohorts} selected={challengeYear} />}
       />
 
       <p className="rounded-md border border-info/30 bg-info/10 p-3 text-sm text-info">
