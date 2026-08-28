@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
+import { DraftRecoveryBanner } from "@/components/application/draft-recovery-banner";
 import { useStepForm } from "@/components/application/use-step-form";
 import { FormRow } from "@/components/forms/form-row";
 import { RichTextRow } from "@/components/forms/rich-text-row";
@@ -44,10 +45,21 @@ export function VentureStep({
 }) {
   const schema = useMemo(() => createVentureSchema({ themes }), [themes]);
 
-  const { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt } =
+  const {
+    form,
+    submit,
+    saveAndExit,
+    isSubmitting,
+    autosaveState,
+    lastSavedAt,
+    recoverable,
+    restoreDraft,
+    discardDraft,
+  } =
     useStepForm<VentureInput>({
       schema,
       applicationId: application.id,
+      step: "venture",
       action: saveVentureStep,
       nextHref,
       readOnly,
@@ -78,6 +90,14 @@ export function VentureStep({
 
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
+      {recoverable && (
+        <DraftRecoveryBanner
+          savedAt={recoverable.savedAt}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+        />
+      )}
+
       {rootError && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="size-4" aria-hidden />

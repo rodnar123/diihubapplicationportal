@@ -33,6 +33,18 @@ function AutosaveIndicator({ state, savedAt }: { state: AutosaveState; savedAt: 
         Not saved — check your connection
       </>
     ),
+    /*
+     * Offline is not an error, and saying so matters. The work is safe in this
+     * browser and will go up when the connection returns, so the message
+     * reassures rather than alarms — telling a student on an intermittent link
+     * that their answer "failed" invites them to retype it.
+     */
+    offline: (
+      <>
+        <CloudOff className="size-3.5" aria-hidden />
+        Saved on this device — will sync when you are back online
+      </>
+    ),
   }[state];
 
   if (!content) return <span aria-hidden />;

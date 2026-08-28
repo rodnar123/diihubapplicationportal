@@ -9,6 +9,7 @@ import type { z } from "zod";
 
 import type { ApplicationDto } from "@/domain/application/types";
 import { callAction } from "@/lib/client-action";
+import { cacheDraft, clearDraft, readDraft } from "@/lib/offline-draft";
 import { applyFieldErrors } from "@/lib/form-errors";
 import type { ActionResult } from "@/lib/errors";
 
@@ -23,7 +24,13 @@ export type SaveStepAction = (input: {
   complete: boolean;
 }) => Promise<ActionResult<ApplicationDto>>;
 
-export type AutosaveState = "idle" | "saving" | "saved" | "error";
+/**
+ * `offline` is distinct from `error` on purpose. An error means the server
+ * refused the values and the student may need to change something; offline
+ * means the values are fine and simply have not arrived yet. Telling a student
+ * on an intermittent link that their work "failed" is both wrong and alarming.
+ */
+export type AutosaveState = "idle" | "saving" | "saved" | "error" | "offline";
 
 const AUTOSAVE_DELAY_MS = 1500;
 
@@ -56,6 +63,7 @@ export function useStepForm<TValues extends FieldValues>({
   schema,
   defaultValues,
   applicationId,
+  step,
   action,
   nextHref,
   readOnly = false,
@@ -63,6 +71,8 @@ export function useStepForm<TValues extends FieldValues>({
   schema: z.ZodType<FieldValues, FieldValues>;
   defaultValues: DefaultValues<TValues>;
   applicationId: string;
+  /** Identifies this step's local cache. Must be stable across renders. */
+  step: string;
   action: SaveStepAction;
   nextHref: string | null;
   readOnly?: boolean;
@@ -86,6 +96,12 @@ export function useStepForm<TValues extends FieldValues>({
   const latestValuesRef = useRef<Values>(defaultValues as Values);
   /** When the oldest currently-unsaved change was made. */
   const pendingSinceRef = useRef<number | null>(null);
+  /**
+   * The server's values as this step first rendered them. Held in a ref so the
+   * recovery check can compare against them without re-running every time the
+   * caller re-creates the `defaultValues` object.
+   */
+  const defaultValuesRef = useRef<Values>(defaultValues as Values);
 
   const runAutosave = useCallback(async () => {
     if (readOnly || submittingRef.current) return;
@@ -106,16 +122,31 @@ export function useStepForm<TValues extends FieldValues>({
     if (result.ok) {
       setAutosaveState("saved");
       setLastSavedAt(new Date());
+
+      /*
+       * The server now holds these values, so the local copy has nothing left
+       * to protect. Clearing it is what stops a stale cache offering to
+       * "restore" text the student has already saved and since changed.
+       */
+      void clearDraft(applicationId, step);
     } else {
-      // A draft save that fails is worth surfacing quietly — it usually means
-      // the session expired or the application is no longer editable.
-      setAutosaveState("error");
+      /*
+       * Distinguish "could not reach the server" from "the server said no".
+       *
+       * `callAction` returns INTERNAL for a transport failure, which on an
+       * intermittent link is the common case and is not the student's problem
+       * to solve. The local copy is already written, so the honest report is
+       * that the work is safe here but has not arrived yet.
+       */
+      const unreachable = result.code === "INTERNAL" || !navigator.onLine;
+      setAutosaveState(unreachable ? "offline" : "error");
+
       if (result.code === "UNAUTHENTICATED" || result.code === "INVALID_STATE") {
         toast.error(result.message);
         router.refresh();
       }
     }
-  }, [action, applicationId, readOnly, router]);
+  }, [action, applicationId, readOnly, router, step]);
 
   // Debounced autosave on every change the student makes.
   useEffect(() => {
@@ -127,6 +158,16 @@ export function useStepForm<TValues extends FieldValues>({
 
       latestValuesRef.current = values as Values;
       pendingSinceRef.current ??= Date.now();
+
+      /*
+       * Cache immediately, not on the debounce.
+       *
+       * The whole point is to survive the window between a keystroke and a
+       * successful post — debouncing this too would leave exactly the gap it
+       * exists to close. It is a local write against IndexedDB, off the main
+       * thread, so it is cheap enough to do on every change.
+       */
+      void cacheDraft(applicationId, step, values);
 
       if (timerRef.current) clearTimeout(timerRef.current);
 
@@ -153,7 +194,80 @@ export function useStepForm<TValues extends FieldValues>({
         void runAutosave();
       }
     };
-  }, [form, readOnly, runAutosave]);
+  }, [form, readOnly, runAutosave, applicationId, step]);
+
+  /*
+   * Retry the moment the connection comes back.
+   *
+   * Without this the student has to touch the form again before anything is
+   * retried — and the most likely thing they do on a flaky link is stop typing
+   * and wait, which is precisely when nothing would happen.
+   *
+   * `navigator.onLine` is only reliable in the negative: the browser fires
+   * `online` when the interface comes up, which is not proof the server is
+   * reachable. That is fine here, because the retry is a save that either
+   * succeeds or sets the state back to offline.
+   */
+  useEffect(() => {
+    if (readOnly) return;
+
+    const retry = () => {
+      if (submittingRef.current) return;
+      setAutosaveState((current) => {
+        if (current === "offline") void runAutosave();
+        return current;
+      });
+    };
+
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [readOnly, runAutosave]);
+
+  /**
+   * A local copy that never reached the server, found on mount.
+   *
+   * Deliberately surfaced rather than applied. Restoring silently would
+   * overwrite whatever the server holds with whatever happens to be in this
+   * browser, and the cache cannot tell "newer work that never sent" from "older
+   * work the student has since replaced from another device". Only the student
+   * knows which, so only the student decides.
+   */
+  const [recoverable, setRecoverable] = useState<{ values: Values; savedAt: Date } | null>(null);
+
+  useEffect(() => {
+    if (readOnly) return;
+
+    let cancelled = false;
+
+    void readDraft<Values>(applicationId, step).then((cached) => {
+      if (cancelled || !cached) return;
+
+      // Nothing to offer if the cache matches what the form already shows.
+      if (JSON.stringify(cached.values) === JSON.stringify(defaultValuesRef.current)) {
+        void clearDraft(applicationId, step);
+        return;
+      }
+
+      setRecoverable({ values: cached.values, savedAt: new Date(cached.savedAt) });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, step, readOnly]);
+
+  const restoreDraft = useCallback(() => {
+    if (!recoverable) return;
+    form.reset(recoverable.values as DefaultValues<Values>);
+    latestValuesRef.current = recoverable.values;
+    setRecoverable(null);
+    void runAutosave();
+  }, [form, recoverable, runAutosave]);
+
+  const discardDraft = useCallback(() => {
+    setRecoverable(null);
+    void clearDraft(applicationId, step);
+  }, [applicationId, step]);
 
   /**
    * Cancels any queued autosave outright.
@@ -190,6 +304,10 @@ export function useStepForm<TValues extends FieldValues>({
         setAutosaveState("saved");
         form.reset(values, { keepValues: true, keepDirty: false });
 
+        // Accepted by the server, so the local copy is redundant — and would
+        // otherwise offer to restore these same values on the way back.
+        void clearDraft(applicationId, step);
+
         if (nextHref) {
           router.push(nextHref);
         } else {
@@ -223,6 +341,7 @@ export function useStepForm<TValues extends FieldValues>({
             return;
           }
 
+          void clearDraft(applicationId, step);
           toast.success("Your progress has been saved.");
           router.push(exitHref);
         } finally {
@@ -230,8 +349,19 @@ export function useStepForm<TValues extends FieldValues>({
         }
       });
     },
-    [action, applicationId, cancelPendingAutosave, form, router],
+    [action, applicationId, cancelPendingAutosave, form, router, step],
   );
 
-  return { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt };
+  return {
+    form,
+    submit,
+    saveAndExit,
+    isSubmitting,
+    autosaveState,
+    lastSavedAt,
+    /** Unsent local work found on mount, for the caller to offer back. */
+    recoverable,
+    restoreDraft,
+    discardDraft,
+  };
 }

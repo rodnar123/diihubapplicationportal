@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
+import { DraftRecoveryBanner } from "@/components/application/draft-recovery-banner";
 import { useStepForm } from "@/components/application/use-step-form";
 import { FormRow } from "@/components/forms/form-row";
 import { RichTextRow } from "@/components/forms/rich-text-row";
@@ -38,10 +39,21 @@ export function PrototypeStep({
   previousHref: string | null;
   nextHref: string | null;
 }) {
-  const { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt } =
+  const {
+    form,
+    submit,
+    saveAndExit,
+    isSubmitting,
+    autosaveState,
+    lastSavedAt,
+    recoverable,
+    restoreDraft,
+    discardDraft,
+  } =
     useStepForm<PrototypeInput>({
       schema: prototypeSchema,
       applicationId: application.id,
+      step: "prototype",
       action: savePrototypeStep,
       nextHref,
       readOnly,
@@ -77,6 +89,14 @@ export function PrototypeStep({
 
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
+      {recoverable && (
+        <DraftRecoveryBanner
+          savedAt={recoverable.savedAt}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+        />
+      )}
+
       {rootError && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="size-4" aria-hidden />

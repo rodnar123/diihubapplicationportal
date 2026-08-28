@@ -5,6 +5,7 @@ import { useFieldArray } from "react-hook-form";
 import { AlertCircle, Plus, Trash2, Users } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
+import { DraftRecoveryBanner } from "@/components/application/draft-recovery-banner";
 import { useStepForm } from "@/components/application/use-step-form";
 import { FormRow } from "@/components/forms/form-row";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -74,10 +75,21 @@ export function TeamStep({
   const team = application.team;
   const otherMembers = team?.members.filter((member) => !member.isLeader) ?? [];
 
-  const { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt } =
+  const {
+    form,
+    submit,
+    saveAndExit,
+    isSubmitting,
+    autosaveState,
+    lastSavedAt,
+    recoverable,
+    restoreDraft,
+    discardDraft,
+  } =
     useStepForm<TeamInput>({
       schema,
       applicationId: application.id,
+      step: "team",
       action: saveTeamStep,
       nextHref,
       readOnly,
@@ -111,6 +123,14 @@ export function TeamStep({
 
   return (
     <form onSubmit={submit} noValidate className="space-y-8">
+      {recoverable && (
+        <DraftRecoveryBanner
+          savedAt={recoverable.savedAt}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+        />
+      )}
+
       {rootError && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="size-4" aria-hidden />

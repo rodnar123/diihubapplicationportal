@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
 import { StepFooter } from "@/components/application/step-footer";
+import { DraftRecoveryBanner } from "@/components/application/draft-recovery-banner";
 import { useStepForm } from "@/components/application/use-step-form";
 import { FormRow } from "@/components/forms/form-row";
 import { SchoolSectionFields } from "@/components/forms/school-section-fields";
@@ -47,10 +48,21 @@ export function ApplicantStep({
   previousHref: string | null;
   nextHref: string | null;
 }) {
-  const { form, submit, saveAndExit, isSubmitting, autosaveState, lastSavedAt } =
+  const {
+    form,
+    submit,
+    saveAndExit,
+    isSubmitting,
+    autosaveState,
+    lastSavedAt,
+    recoverable,
+    restoreDraft,
+    discardDraft,
+  } =
     useStepForm<ApplicantSectionInput>({
       schema: applicantSectionSchema,
       applicationId: application.id,
+      step: "applicant",
       action: saveApplicantStep,
       nextHref,
       readOnly,
@@ -67,6 +79,14 @@ export function ApplicantStep({
 
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
+      {recoverable && (
+        <DraftRecoveryBanner
+          savedAt={recoverable.savedAt}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+        />
+      )}
+
       {rootError && (
         <Alert variant="destructive" role="alert">
           <AlertCircle className="size-4" aria-hidden />
