@@ -11,6 +11,7 @@ import { PrintLink } from "@/components/admin/print-trigger";
 import { ReviewPanel } from "@/components/admin/review-panel";
 import { AssignReviewers } from "@/components/admin/assign-reviewers";
 import { ScorecardPanel } from "@/components/admin/scorecard-panel";
+import { SimilarEntries } from "@/components/admin/similar-entries";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { ROUTES } from "@/lib/routes";
 import { AUDIT_ACTIONS, recordAudit } from "@/services/audit/audit-log";
 import { getApplicationDetail } from "@/services/admin/review-service";
 import { getPanelMembers, getReviewPanel } from "@/services/admin/scoring-service";
+import { findSimilarApplications } from "@/services/admin/similarity-service";
 
 export async function generateMetadata({
   params,
@@ -57,9 +59,10 @@ export default async function AdminApplicationDetailPage({
 
   // Independent of each other and of the detail read above, so they go together
   // rather than stacking three round trips to the pooler on one render.
-  const [panel, panelMembers] = await Promise.all([
+  const [panel, panelMembers, similar] = await Promise.all([
     getReviewPanel(reviewer, id),
     isAdmin(reviewer.role) ? getPanelMembers() : Promise.resolve([]),
+    findSimilarApplications(id),
   ]);
 
   // Viewing a student's submission is itself an auditable event.
@@ -151,6 +154,8 @@ export default async function AdminApplicationDetailPage({
             cards={panel.cards}
             aggregate={panel.score}
           />
+
+          <SimilarEntries pairs={similar} />
 
           {isAdmin(reviewer.role) && (
             <AssignReviewers
