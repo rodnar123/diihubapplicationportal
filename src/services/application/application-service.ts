@@ -748,12 +748,34 @@ export async function getApplicationOverview(user: SessionUser): Promise<{
 }> {
   const settings = await getAppSettings();
 
+  /*
+   * Newest first, and it matters.
+   *
+   * `getOrCreateDraft` treats a withdrawal as freeing the slot — it looks for
+   * an entry `status: { not: WITHDRAWN }`, so a student who withdraws and
+   * reopens the form gets a *second* row for the same challenge year. The
+   * partial unique index allows exactly that, by design.
+   *
+   * This query has no such filter, and without an explicit order Postgres may
+   * return either row: the dashboard could show the withdrawn entry, with its
+   * old status and old reference number, while `/application` was editing the
+   * new draft — and which one appeared could change between two requests.
+   *
+   * Ordering by `createdAt` resolves it to the same row the wizard is working
+   * on, because the replacement is always created after the withdrawal.
+   *
+   * Withdrawn entries are deliberately *not* filtered out. A student who has
+   * withdrawn and not started again should still see what happened to their
+   * entry; excluding them would blank the dashboard and read as if the
+   * application had been deleted.
+   */
   const record = await prisma.application.findFirst({
     where: {
       ownerId: user.id,
       challengeYear: settings["challenge.year"],
       deletedAt: null,
     },
+    orderBy: { createdAt: "desc" },
     include: {
       ...applicationInclude,
       statusHistory: {
