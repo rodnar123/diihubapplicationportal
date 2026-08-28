@@ -11,6 +11,7 @@ import { REFERENCE_PREFIX } from "@/domain/challenge/constants";
 import { submissionWindow, type AppSettings } from "@/domain/settings/app-settings";
 import type { SessionUser } from "@/lib/auth/session";
 import { prisma, type DbTransactionClient } from "@/lib/db/prisma";
+import { MAX_ATTEMPTS, backoffMs } from "@/lib/db/transient";
 import { formatDateTime } from "@/lib/format";
 import { AppError, conflict, forbidden, invalidState, notFound } from "@/lib/errors";
 import { AUDIT_ACTIONS, recordAudit, requestContext } from "@/services/audit/audit-log";
@@ -482,13 +483,43 @@ export async function saveDeclaration(
 // ---------------------------------------------------------------------------
 
 /**
+ * Recognises the one collision {@link submitApplication} is allowed to retry.
+ *
+ * Deliberately narrow. `P2002` on `referenceNumber` means two submissions read
+ * the same sequence number and the index caught the second — repeating the
+ * transaction re-reads the now-higher maximum and succeeds. `P2002` on any
+ * other constraint means something the caller must not paper over: the
+ * one-live-entry-per-year index firing here would say the student already holds
+ * another application, and retrying that forever would just burn the budget
+ * before failing anyway.
+ *
+ * Duck-typed rather than matched against `PrismaClientKnownRequestError`,
+ * for the same reason `transient.ts` walks `code` by hand: the client is
+ * wrapped in an extension, and the class identity is not worth depending on.
+ */
+function isReferenceNumberCollision(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+
+  const { code, meta } = error as { code?: unknown; meta?: { target?: unknown } };
+  if (code !== "P2002") return false;
+
+  // `target` is the field list on some drivers and the constraint name on
+  // others, so stringify and look for the column either way.
+  return JSON.stringify(meta?.target ?? "").includes("referenceNumber");
+}
+
+/**
  * Allocates the next reference number for a challenge year.
  *
  * Fixed-width zero padding makes lexicographic order match numeric order, so
  * the highest existing number can be found with a plain `ORDER BY … DESC`.
- * The unique index on `referenceNumber` is what actually prevents a collision
- * between two concurrent submissions; the retry loop turns that collision into
- * a second attempt rather than an error.
+ *
+ * This read-then-write is *not* safe on its own: Postgres runs at READ
+ * COMMITTED, so two transactions submitting in the same instant both see the
+ * same maximum and both compute the same next value. The unique index on
+ * `referenceNumber` is what stops the duplicate reaching the table; the retry
+ * in {@link submitApplication} is what turns that into a second attempt rather
+ * than a lost submission.
  */
 async function allocateReferenceNumber(
   tx: DbTransactionClient,
@@ -543,59 +574,101 @@ export async function submitApplication(
   const isResubmission = existing.status === ApplicationStatus.REVISION_REQUESTED;
   const { ipAddress, userAgent } = await requestContext();
 
-  const result = await prisma.$transaction(async (tx) => {
-    // Re-read inside the transaction: between the completeness check and here,
-    // a second tab could have submitted already.
-    const current = await tx.application.findUniqueOrThrow({
-      where: { id: applicationId },
-      select: { status: true, referenceNumber: true, revisionCount: true },
+  const runSubmission = () =>
+    prisma.$transaction(async (tx) => {
+      // Re-read inside the transaction: between the completeness check and
+      // here, a second tab could have submitted already.
+      const current = await tx.application.findUniqueOrThrow({
+        where: { id: applicationId },
+        select: { status: true, referenceNumber: true, revisionCount: true },
+      });
+
+      if (!isEditableByStudent(current.status)) {
+        throw invalidState("This application has already been submitted.");
+      }
+
+      const referenceNumber =
+        current.referenceNumber ?? (await allocateReferenceNumber(tx, existing.challengeYear));
+
+      const submittedAt = new Date();
+
+      const updated = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: ApplicationStatus.SUBMITTED,
+          referenceNumber,
+          submittedAt,
+          revisionCount: isResubmission ? current.revisionCount + 1 : current.revisionCount,
+        },
+        include: applicationInclude,
+      });
+
+      await tx.statusHistory.create({
+        data: {
+          applicationId,
+          fromStatus: current.status,
+          toStatus: ApplicationStatus.SUBMITTED,
+          actorId: user.id,
+          note: isResubmission ? "Re-submitted after revision." : "Submitted for review.",
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: AUDIT_ACTIONS.applicationSubmitted,
+          entityType: "Application",
+          entityId: applicationId,
+          actorId: user.id,
+          actorEmail: user.email,
+          metadata: { referenceNumber, isResubmission },
+          ipAddress,
+          userAgent,
+        },
+      });
+
+      return { updated, referenceNumber };
     });
 
-    if (!isEditableByStudent(current.status)) {
-      throw invalidState("This application has already been submitted.");
+  /*
+   * Retry only the reference-number collision.
+   *
+   * Two students pressing Submit in the same instant is not a hypothetical —
+   * it is what the last hour before a deadline looks like. Both transactions
+   * read the same maximum, both compute the same next reference, and the
+   * unique index rejects the loser. Without this the loser saw
+   * "Something went wrong on our side" and their entry stayed a draft, on the
+   * one evening nobody is watching the logs.
+   *
+   * The whole transaction is repeated rather than just the allocation, because
+   * the failed one is already rolled back — there is nothing left to continue.
+   * Everything inside it is idempotent from the caller's point of view: the
+   * status history and audit rows from the abandoned attempt rolled back with
+   * it.
+   *
+   * Two retries is enough. Each attempt re-reads a maximum that has, by
+   * definition, just been raised by whoever won, so a third collision needs
+   * three submissions inside the same few hundred milliseconds.
+   */
+  let result: Awaited<ReturnType<typeof runSubmission>> | undefined;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      result = await runSubmission();
+      break;
+    } catch (error) {
+      if (attempt === MAX_ATTEMPTS || !isReferenceNumberCollision(error)) throw error;
+
+      console.warn(
+        `[submit] reference number collision for ${applicationId}; ` +
+          `retrying (attempt ${attempt + 1} of ${MAX_ATTEMPTS})`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)));
     }
+  }
 
-    const referenceNumber =
-      current.referenceNumber ?? (await allocateReferenceNumber(tx, existing.challengeYear));
-
-    const submittedAt = new Date();
-
-    const updated = await tx.application.update({
-      where: { id: applicationId },
-      data: {
-        status: ApplicationStatus.SUBMITTED,
-        referenceNumber,
-        submittedAt,
-        revisionCount: isResubmission ? current.revisionCount + 1 : current.revisionCount,
-      },
-      include: applicationInclude,
-    });
-
-    await tx.statusHistory.create({
-      data: {
-        applicationId,
-        fromStatus: current.status,
-        toStatus: ApplicationStatus.SUBMITTED,
-        actorId: user.id,
-        note: isResubmission ? "Re-submitted after revision." : "Submitted for review.",
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        action: AUDIT_ACTIONS.applicationSubmitted,
-        entityType: "Application",
-        entityId: applicationId,
-        actorId: user.id,
-        actorEmail: user.email,
-        metadata: { referenceNumber, isResubmission },
-        ipAddress,
-        userAgent,
-      },
-    });
-
-    return { updated, referenceNumber };
-  });
+  // Unreachable: the loop either assigns or rethrows. Present so the type is
+  // narrowed without a non-null assertion.
+  if (!result) throw new AppError("INTERNAL", "The submission could not be completed.");
 
   return {
     application: toApplicationDto(result.updated),
