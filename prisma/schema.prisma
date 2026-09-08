@@ -442,10 +442,17 @@ model Attachment {
 model ReviewCriterion {
   id String @id @default(cuid())
 
-  /// Stable machine name, e.g. "INNOVATION". Unique within a challenge year.
+  /// Stable machine name, e.g. "INNO_DIGITAL". Unique within a challenge year.
   code        String
   name        String
   description String?
+
+  /// Section of the marking sheet this line sits under, e.g. "INNOVATION" /
+  /// "Innovation". Denormalised onto the row rather than given its own table:
+  /// a section carries no behaviour and no data of its own, only a heading and
+  /// a running order that `sortOrder` already establishes.
+  groupCode String
+  groupName String
 
   /// Relative weight in the aggregate. Integers so that a rubric summing to
   /// 100 can be read straight off as percentages.

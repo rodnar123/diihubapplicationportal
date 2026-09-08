@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ReviewAssignmentStatus } from "@/generated/prisma/enums";
 import {
   MODERATION_SPREAD_THRESHOLD,
+  groupCriteria,
+  groupSubtotal,
   isScorecardComplete,
   scoreCard,
   type Criterion,
@@ -184,6 +186,10 @@ function MyScorecard({ criteria, card }: { criteria: Criterion[]; card: PanelCar
 
   const complete = isScorecardComplete(criteria, entries);
 
+  // The sheet's eight sections. Derived from the criteria rather than hardcoded
+  // so that a reweighted or re-sectioned rubric changes the screen by itself.
+  const groups = useMemo(() => groupCriteria(criteria), [criteria]);
+
   const persist = (next: Map<string, number>, nextComments: Map<string, string>) => {
     const payload = [...next.entries()].map(([criterionId, value]) => ({
       criterionId,
@@ -286,39 +292,57 @@ function MyScorecard({ criteria, card }: { criteria: Criterion[]; card: PanelCar
         </div>
       </div>
 
-      <ul className="flex flex-col gap-4">
-        {criteria.map((criterion) => (
-          <li key={criterion.id} className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="text-sm font-medium">{criterion.name}</span>
+      <div className="flex flex-col gap-6">
+        {groups.map((group) => (
+          <section key={group.code} className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-1.5">
+              <h4 className="text-sm font-semibold">{group.name}</h4>
+              {/*
+                The section subtotal against the section total, exactly as the
+                printed sheet reads. An assessor typing up a paper card checks
+                these eight numbers rather than re-reading twenty-seven lines.
+              */}
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                weight {criterion.weight} · out of {criterion.maxValue}
+                {groupSubtotal(group, entries)} / {group.maxTotal}
               </span>
             </div>
 
-            {criterion.description && (
-              <p className="text-xs text-muted-foreground">{criterion.description}</p>
-            )}
+            <ul className="flex flex-col gap-4">
+              {group.criteria.map((criterion) => (
+                <li key={criterion.id} className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium">{criterion.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      out of {criterion.maxValue}
+                    </span>
+                  </div>
 
-            <MarkSelector
-              criterion={criterion}
-              value={values.get(criterion.id)}
-              disabled={locked || isPending}
-              onChange={(value) => setMark(criterion.id, value)}
-            />
+                  {criterion.description && (
+                    <p className="text-xs text-muted-foreground">{criterion.description}</p>
+                  )}
 
-            <Textarea
-              rows={2}
-              placeholder="Why this mark? (optional, but valuable at the top and bottom of the scale)"
-              value={comments.get(criterion.id) ?? ""}
-              disabled={locked}
-              onChange={(event) => setComment(criterion.id, event.target.value)}
-              onBlur={() => persist(values, comments)}
-              className="text-sm"
-            />
-          </li>
+                  <MarkSelector
+                    criterion={criterion}
+                    value={values.get(criterion.id)}
+                    disabled={locked || isPending}
+                    onChange={(value) => setMark(criterion.id, value)}
+                  />
+
+                  <Textarea
+                    rows={2}
+                    placeholder="Why this mark? (optional, but valuable at the top and bottom of the scale)"
+                    value={comments.get(criterion.id) ?? ""}
+                    disabled={locked}
+                    onChange={(event) => setComment(criterion.id, event.target.value)}
+                    onBlur={() => persist(values, comments)}
+                    className="text-sm"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
 
       {error && (
         <p className="text-sm text-destructive" role="alert">
@@ -390,10 +414,12 @@ function MyScorecard({ criteria, card }: { criteria: Criterion[]; card: PanelCar
 /**
  * Marks are picked from a row of buttons rather than typed.
  *
- * A five-point scale has five answers; a number input invites a sixth, and
- * every one of those has to be rejected somewhere. Radio semantics because that
- * is what this is — one choice from a small fixed set — which also gives
- * keyboard users arrow-key navigation for free.
+ * A line worth 3 has four answers; a number input invites a fifth, and every
+ * one of those has to be rejected somewhere. The row is built from `maxValue`,
+ * so the sheet's 2-, 3-, 4- and 5-mark lines each offer their own range and
+ * nothing else. Radio semantics because that is what this is — one choice from
+ * a small fixed set — which also gives keyboard users arrow-key navigation for
+ * free.
  */
 function MarkSelector({
   criterion,

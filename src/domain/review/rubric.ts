@@ -28,6 +28,9 @@ export interface Criterion {
   readonly weight: number;
   readonly maxValue: number;
   readonly sortOrder: number;
+  /** Section of the marking sheet this line sits under, e.g. "INNOVATION". */
+  readonly groupCode: string;
+  readonly groupName: string;
 }
 
 export interface ScoreEntry {
@@ -68,6 +71,74 @@ export function isValidScore(value: number, criterion: Criterion): boolean {
 export function normalisedValue(value: number, criterion: Criterion): number {
   if (criterion.maxValue <= 0) return 0;
   return Math.min(1, Math.max(0, value / criterion.maxValue));
+}
+
+// ---------------------------------------------------------------------------
+// The sheet's sections
+// ---------------------------------------------------------------------------
+
+export interface CriterionGroup {
+  readonly code: string;
+  readonly name: string;
+  readonly criteria: readonly Criterion[];
+  /** Marks available across the section — the printed sheet's section total. */
+  readonly maxTotal: number;
+}
+
+/**
+ * Folds a flat rubric back into the sections it was printed in.
+ *
+ * Order comes from `sortOrder`, which runs across the whole sheet rather than
+ * restarting per section, so sections appear in their printed order and a line
+ * cannot silently jump section by being reordered. Grouping is by first
+ * appearance rather than by sorting on the group, so a rubric whose sections
+ * are *not* contiguous still renders every line exactly once instead of
+ * dropping the stragglers.
+ */
+export function groupCriteria(criteria: readonly Criterion[]): CriterionGroup[] {
+  const ordered = [...criteria].sort((a, b) => a.sortOrder - b.sortOrder);
+  const groups: CriterionGroup[] = [];
+  const byCode = new Map<string, Criterion[]>();
+
+  for (const criterion of ordered) {
+    let bucket = byCode.get(criterion.groupCode);
+
+    if (!bucket) {
+      bucket = [];
+      byCode.set(criterion.groupCode, bucket);
+      groups.push({
+        code: criterion.groupCode,
+        name: criterion.groupName,
+        criteria: bucket,
+        maxTotal: 0,
+      });
+    }
+
+    bucket.push(criterion);
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    maxTotal: group.criteria.reduce((sum, criterion) => sum + criterion.maxValue, 0),
+  }));
+}
+
+/**
+ * Marks awarded so far within one section, on the section's own scale.
+ *
+ * Raw rather than weighted: this is the running subtotal an assessor checks
+ * against the section total on the paper sheet in front of them, and a
+ * percentage there would be a number the sheet does not have.
+ */
+export function groupSubtotal(
+  group: CriterionGroup,
+  scores: readonly ScoreEntry[],
+): number {
+  const marked = new Map(scores.map((score) => [score.criterionId, score.value]));
+  return group.criteria.reduce(
+    (sum, criterion) => sum + (marked.get(criterion.id) ?? 0),
+    0,
+  );
 }
 
 // ---------------------------------------------------------------------------

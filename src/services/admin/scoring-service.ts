@@ -71,6 +71,8 @@ function toCriterion(record: {
   weight: number;
   maxValue: number;
   sortOrder: number;
+  groupCode: string;
+  groupName: string;
 }): Criterion {
   return {
     id: record.id,
@@ -80,6 +82,8 @@ function toCriterion(record: {
     weight: record.weight,
     maxValue: record.maxValue,
     sortOrder: record.sortOrder,
+    groupCode: record.groupCode,
+    groupName: record.groupName,
   };
 }
 
