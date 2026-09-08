@@ -4,6 +4,7 @@ import { Role } from "@/generated/prisma/enums";
 import {
   evaluateEmailPolicy,
   givenNameFromEmail,
+  isStaffEmail,
   isStudentEmail,
   normalizeEmail,
   studentIdFromEmail,
@@ -33,10 +34,25 @@ const ACCOUNT_DISABLED_MESSAGE =
 /**
  * Decides what role an address is entitled to.
  *
- * Students are provisioned automatically. Staff are not: an administrator must
- * either be named in `ADMIN_EMAIL_ALLOWLIST` or already exist as an active
- * reviewer/administrator row. This stops anyone who happens to hold a
- * `@pnguot.ac.pg` mailbox from reaching the review console.
+ * Students and staff are both provisioned from their domain. The panel is
+ * staffed from across the schools and changes between cycles, and requiring an
+ * administrator to name each assessor in an environment variable made adding
+ * one a deploy; a `@pnguot.ac.pg` mailbox is therefore enough to sign in, as a
+ * reviewer.
+ *
+ * That is deliberately a small thing to be. A reviewer reads entries and marks
+ * the ones an administrator has allocated to them. Approving or rejecting an
+ * entry, allocating the work, and everything behind Users, Settings and the
+ * audit log stay with `ADMIN`, which is still granted only by
+ * `ADMIN_EMAIL_ALLOWLIST`. The wide door leads to a small room.
+ *
+ * Order matters below, and the default is last for two reasons. An address that
+ * already has a row keeps whatever role an administrator gave it, so a
+ * promotion or a demotion survives the next sign-in rather than being reset to
+ * the domain default. And an account that has been deactivated or deleted keeps
+ * its refusal, because only an address with no row of its own reaches the
+ * default at all — otherwise the wide door would quietly reopen every account
+ * the challenge office had closed.
  */
 async function resolveRole(email: string): Promise<
   { ok: true; role: Role } | { ok: false; reason: "STAFF_NOT_AUTHORISED" }
@@ -61,6 +77,13 @@ async function resolveRole(email: string): Promise<
     (existing.role === Role.ADMIN || existing.role === Role.REVIEWER)
   ) {
     return { ok: true, role: existing.role };
+  }
+
+  // No row yet: a university address joins the panel, anything else does not.
+  // `evaluateEmailPolicy` has already refused a domain we do not recognise, so
+  // this is a second reading of the same rule rather than the only one.
+  if (!existing && isStaffEmail(email, serverEnv.STAFF_EMAIL_DOMAIN)) {
+    return { ok: true, role: Role.REVIEWER };
   }
 
   return { ok: false, reason: "STAFF_NOT_AUTHORISED" };

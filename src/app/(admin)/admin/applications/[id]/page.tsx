@@ -130,24 +130,33 @@ export default async function AdminApplicationDetailPage({
         </Card>
 
         <div className="order-1 space-y-6 lg:order-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Review</CardTitle>
-              <CardDescription>Record a decision on this entry.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ReviewPanel
-                applicationId={id}
-                currentStatus={application.status}
-                reviewerRole={reviewer.role}
-              />
-            </CardContent>
-          </Card>
+          {/*
+            Administrators only, because recording a decision is. A reviewer
+            still sees the entry's status in the header above; what they do not
+            get is a form that would refuse them on submit.
+          */}
+          {isAdmin(reviewer.role) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Review</CardTitle>
+                <CardDescription>Record a decision on this entry.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ReviewPanel
+                  applicationId={id}
+                  currentStatus={application.status}
+                  reviewerRole={reviewer.role}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/*
             Below the decision panel, not above it. The order is the argument:
-            a reviewer decides, and the marks inform that — putting a percentage
-            first would invite the panel to read the number as the verdict.
+            the office decides, and the marks inform that — putting a percentage
+            first would invite whoever is deciding to read the number as the
+            verdict. For a reviewer, who sees no decision panel, this is simply
+            the top of their work.
           */}
           <ScorecardPanel
             criteria={panel.criteria}

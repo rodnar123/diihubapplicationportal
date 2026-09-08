@@ -138,20 +138,25 @@ export interface DecisionResult {
 }
 
 /**
- * Applies a reviewer's decision.
+ * Applies the challenge office's decision.
  *
  * Status change, history entry, optional shared comment, audit record and the
  * applicant's notification all commit together — a student must never see
  * "revision requested" with no explanation of what to revise, and the trail
  * must never disagree with the current status.
+ *
+ * Administrators only. A reviewer marks and comments; moving an entry to
+ * approved or rejected is the office's call, and the rule is repeated here
+ * rather than left to the Server Action because an action is reachable by POST
+ * without going near the button that is meant to be the only way to call it.
  */
 export async function recordDecision(
-  reviewer: SessionUser,
+  actor: SessionUser,
   applicationId: string,
   input: DecisionInput,
 ): Promise<DecisionResult> {
-  if (reviewer.role !== Role.ADMIN && reviewer.role !== Role.REVIEWER) {
-    throw forbidden("Only the review panel can change an application's status.");
+  if (actor.role !== Role.ADMIN) {
+    throw forbidden("Only an administrator can change an application's status.");
   }
 
   const existing = await prisma.application.findFirst({
@@ -167,7 +172,7 @@ export async function recordDecision(
     throw invalidState(`This application is already marked as ${nextStatus.toLowerCase().replace("_", " ")}.`);
   }
 
-  if (!canTransition(existing.status, nextStatus, reviewer.role)) {
+  if (!canTransition(existing.status, nextStatus, actor.role)) {
     throw invalidState(
       `An application cannot move from ${existing.status.toLowerCase().replace("_", " ")} to ${nextStatus.toLowerCase().replace("_", " ")}.`,
     );
@@ -183,7 +188,7 @@ export async function recordDecision(
       where: { id: applicationId },
       data: {
         status: nextStatus,
-        reviewedById: reviewer.id,
+        reviewedById: actor.id,
         // A decision stamps the review time; picking an entry up does not.
         reviewedAt: isDecision ? new Date() : undefined,
         decisionNote: isDecision ? note : undefined,
@@ -196,7 +201,7 @@ export async function recordDecision(
         applicationId,
         fromStatus: existing.status,
         toStatus: nextStatus,
-        actorId: reviewer.id,
+        actorId: actor.id,
         note,
       },
     });
@@ -207,7 +212,7 @@ export async function recordDecision(
       await tx.comment.create({
         data: {
           applicationId,
-          authorId: reviewer.id,
+          authorId: actor.id,
           body: note,
           visibility: CommentVisibility.SHARED,
         },
@@ -237,8 +242,8 @@ export async function recordDecision(
         action: AUDIT_ACTIONS.applicationStatusChanged,
         entityType: "Application",
         entityId: applicationId,
-        actorId: reviewer.id,
-        actorEmail: reviewer.email,
+        actorId: actor.id,
+        actorEmail: actor.email,
         metadata: {
           from: existing.status,
           to: nextStatus,

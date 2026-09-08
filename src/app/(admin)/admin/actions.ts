@@ -33,17 +33,26 @@ function revalidateAdmin(applicationId?: string) {
   if (applicationId) revalidatePath(ROUTES.adminApplication(applicationId));
 }
 
+/**
+ * Records the outcome of a review.
+ *
+ * `requireAdminForAction`, not `requireReviewerForAction`: any university
+ * address can sign in as a reviewer, so the panel is wide, and marking is
+ * bounded by what an administrator allocated. Changing an entry's status is
+ * not bounded by anything, which is why it is not a reviewer's to do. The
+ * panel scores; the challenge office decides.
+ */
 export async function recordDecisionAction(input: {
   applicationId: string;
   values: unknown;
 }) {
   return runAction(async () => {
-    const reviewer = await requireReviewerForAction();
-    enforceRateLimit(`decision:${reviewer.id}`, RATE_LIMITS.comment);
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`decision:${admin.id}`, RATE_LIMITS.comment);
 
     const values = parseOrThrow(decisionSchema, input.values);
 
-    const result = await recordDecision(reviewer, input.applicationId, {
+    const result = await recordDecision(admin, input.applicationId, {
       ...values,
       note: sanitizePlainText(values.note ?? null) ?? undefined,
     });
@@ -123,8 +132,8 @@ const bulkDecisionSchema = z.object({
  */
 export async function bulkDecisionAction(input: unknown) {
   return runAction(async () => {
-    const reviewer = await requireReviewerForAction();
-    enforceRateLimit(`bulk-decision:${reviewer.id}`, RATE_LIMITS.submit);
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`bulk-decision:${admin.id}`, RATE_LIMITS.submit);
 
     const { applicationIds, values } = parseOrThrow(bulkDecisionSchema, input);
     const decision = parseOrThrow(decisionSchema, values);
@@ -133,7 +142,7 @@ export async function bulkDecisionAction(input: unknown) {
 
     for (const applicationId of applicationIds) {
       try {
-        await recordDecision(reviewer, applicationId, decision);
+        await recordDecision(admin, applicationId, decision);
         results.push({ applicationId, ok: true });
       } catch (error) {
         results.push({
