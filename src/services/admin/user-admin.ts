@@ -1,14 +1,22 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import type { Prisma } from "@/generated/prisma/client";
 import { Role } from "@/generated/prisma/enums";
 import type { UserQuery } from "@/domain/admin/user-query";
-import { isStudentEmail } from "@/domain/identity/email";
+import { hasValidEmailShape, isStaffEmail, isStudentEmail, normalizeEmail } from "@/domain/identity/email";
 import type { SessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { clientEnv } from "@/lib/env";
-import { forbidden, invalidState, notFound } from "@/lib/errors";
-import { AUDIT_ACTIONS, recordAuditTx, requestContext } from "@/services/audit/audit-log";
+import { serverEnv } from "@/lib/env.server";
+import { conflict, forbidden, invalidState, notFound } from "@/lib/errors";
+import {
+  AUDIT_ACTIONS,
+  recordAudit,
+  recordAuditTx,
+  requestContext,
+} from "@/services/audit/audit-log";
 
 /**
  * The user directory and the operations an administrator can perform on it.
@@ -221,6 +229,99 @@ async function loadTarget(userId: string) {
   return user;
 }
 
+export interface NewPanelMember {
+  id: string;
+  name: string;
+  email: string;
+  /** True when the address was minted here because none was given. */
+  emailIsPlaceholder: boolean;
+}
+
+/**
+ * Adds someone to the review panel who may never sign in.
+ *
+ * Two people need this and neither fits the sign-in path: a lecturer who marks
+ * on paper during the pitch and hands the sheet to the office, and an outside
+ * judge with no university mailbox at all. Both are people whose marks the
+ * portal has to hold; neither is a person the portal has to authenticate. So
+ * this creates the row and stops — no invitation is sent, no password exists,
+ * and `authProviderId` and `lastLoginAt` stay null unless they ever do sign in.
+ *
+ * Which of the two they are decides itself, and correctly. A university address
+ * can sign in later and find their card already waiting. An outside address
+ * cannot: `evaluateEmailPolicy` refuses a domain the portal does not recognise,
+ * so that account is exactly as inert as it looks.
+ */
+export async function addPanelMember(
+  actor: SessionUser,
+  input: { name: string; email: string | null },
+): Promise<NewPanelMember> {
+  assertAdmin(actor);
+
+  const name = input.name.trim();
+  const given = input.email ? normalizeEmail(input.email) : "";
+
+  // Checked here as well as in the action so the database's own constraint is
+  // never the thing that reports a typo — it can only fail the whole write with
+  // nothing a person can act on.
+  if (given && !hasValidEmailShape(given)) {
+    throw invalidState("That does not look like an email address.");
+  }
+
+  if (given && isStudentEmail(given, clientEnv.NEXT_PUBLIC_STUDENT_EMAIL_DOMAIN)) {
+    throw invalidState(
+      "That is a student address. A student signs in to file an entry, and giving the " +
+        "same mailbox a scorecard would put one person on both sides of the table.",
+    );
+  }
+
+  // Checked before inserting so the refusal can name who already holds the
+  // address; the unique index behind it is what actually settles a race.
+  const existing = given
+    ? await prisma.user.findUnique({
+        where: { email: given },
+        select: { name: true, deletedAt: true },
+      })
+    : null;
+
+  if (existing) {
+    // The same sentence in both places. It names who holds the address and what
+    // to do instead, and it is rendered against the email field, where the
+    // administrator is already looking — a terser field error would hide the
+    // only part of this worth reading.
+    const clash = existing.deletedAt
+      ? `${existing.name} already has a deleted account on that address. Restore it rather than adding a second.`
+      : `${existing.name} already has an account on that address. Change their role rather than adding a second.`;
+
+    throw conflict(clash, { email: [clash] });
+  }
+
+  /*
+   * No address given, but `email` is a required unique column, so the row needs
+   * something. `.invalid` is reserved by RFC 2606 for precisely this: a domain
+   * guaranteed never to resolve, so a placeholder can never be mistaken for a
+   * real mailbox or accidentally delivered to.
+   */
+  const emailIsPlaceholder = given === "";
+  const email = given || `panellist-${randomUUID().slice(0, 8)}@panel.invalid`;
+
+  const user = await prisma.user.create({
+    data: { name, email, role: Role.REVIEWER },
+    select: { id: true, name: true, email: true },
+  });
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.panelMemberAdded,
+    entityType: "User",
+    entityId: user.id,
+    actorId: actor.id,
+    actorEmail: actor.email,
+    metadata: { name: user.name, email: user.email, emailIsPlaceholder },
+  });
+
+  return { ...user, emailIsPlaceholder };
+}
+
 export async function updateUserRole(
   actor: SessionUser,
   userId: string,
@@ -253,6 +354,24 @@ export async function updateUserRole(
     throw invalidState(
       "This is a staff address with no student profile, so it cannot be made a student. " +
         "Deactivate the account instead if it should lose access.",
+    );
+  }
+
+  /*
+   * A panel member from outside the university holds an address the database
+   * accepts only for a reviewer, so this would otherwise fail on a constraint
+   * with nothing useful to say. It is also right on its own terms: an
+   * administrator is by definition an account that signs in, and an outside
+   * address cannot — `evaluateEmailPolicy` refuses it at the door.
+   */
+  if (
+    role === Role.ADMIN &&
+    !isStudentEmail(target.email, clientEnv.NEXT_PUBLIC_STUDENT_EMAIL_DOMAIN) &&
+    !isStaffEmail(target.email, serverEnv.STAFF_EMAIL_DOMAIN)
+  ) {
+    throw invalidState(
+      `${target.name} has an address from outside the university, which cannot sign in. ` +
+        "Only a university account can be an administrator.",
     );
   }
 

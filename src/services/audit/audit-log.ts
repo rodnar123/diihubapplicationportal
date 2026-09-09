@@ -32,6 +32,7 @@ export const AUDIT_ACTIONS = {
   userDeactivated: "user.deactivated",
   userDeleted: "user.deleted",
   userRestored: "user.restored",
+  panelMemberAdded: "user.panel_member_added",
   attachmentUploaded: "attachment.uploaded",
   attachmentDeleted: "attachment.deleted",
   attachmentDownloaded: "attachment.downloaded",

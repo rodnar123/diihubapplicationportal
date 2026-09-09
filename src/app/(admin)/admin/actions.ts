@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { commentSchema, decisionSchema } from "@/domain/application/schemas";
+import { hasValidEmailShape } from "@/domain/identity/email";
 import { appSettingsSchema, type AppSettings } from "@/domain/settings/app-settings";
 import { Role } from "@/generated/prisma/enums";
 import { parseOrThrow, runAction } from "@/lib/action-helpers";
@@ -15,6 +16,7 @@ import { deleteApplication, restoreApplication } from "@/services/admin/applicat
 import { searchApplicationsQuick } from "@/services/admin/application-query";
 import { addComment, recordDecision } from "@/services/admin/review-service";
 import {
+  addPanelMember,
   restoreUser,
   setUserActive,
   softDeleteUser,
@@ -254,6 +256,40 @@ function revalidateUsers() {
 }
 
 const userIdSchema = z.string().trim().min(1).max(40);
+
+/**
+ * Adds a panel member who may never sign in.
+ *
+ * The email is optional because an outside judge may not have one to give, and
+ * a name with no mailbox is still a person who marked an entry. Everything else
+ * about the account is fixed: it is a reviewer, and it is created active.
+ */
+const panelMemberSchema = z.object({
+  name: z.string().trim().min(2, "Enter the assessor's full name.").max(120),
+  email: z
+    .string()
+    .trim()
+    .max(254)
+    .optional()
+    .transform((value) => value ?? "")
+    .refine(
+      (value) => value === "" || hasValidEmailShape(value),
+      "Enter a valid email address, or leave it blank.",
+    ),
+});
+
+export async function addPanelMemberAction(input: unknown) {
+  return runAction(async () => {
+    const admin = await requireAdminForAction();
+    enforceRateLimit(`panel-member:${admin.id}`, RATE_LIMITS.adminDestructive);
+
+    const { name, email } = parseOrThrow(panelMemberSchema, input);
+    const member = await addPanelMember(admin, { name, email: email || null });
+
+    revalidateUsers();
+    return member;
+  });
+}
 
 export async function updateUserRoleAction(input: { userId: string; role: unknown }) {
   return runAction(async () => {

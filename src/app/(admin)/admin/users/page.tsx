@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { AddPanelMember } from "@/components/admin/add-panel-member";
 import { UserFilters } from "@/components/admin/user-filters";
 import { UsersTable } from "@/components/admin/users-table";
 import { PageHeader } from "@/components/layout/page-header";
@@ -39,6 +40,7 @@ export default async function AdminUsersPage({
         title="Users"
         description="Who can sign in, and what they can do once they have."
         breadcrumbs={[{ label: "Admin", href: ROUTES.admin }, { label: "Users" }]}
+        actions={<AddPanelMember />}
       />
 
       {result.activeAdminCount <= 1 && (

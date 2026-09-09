@@ -94,6 +94,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [Role.STUDENT]: "Files an entry. No access to the review console.",
-  [Role.REVIEWER]: "Reads every entry, records decisions and comments.",
-  [Role.ADMIN]: "Everything a reviewer can do, plus settings, users and deletion.",
+  [Role.REVIEWER]: "Reads and comments on every entry, and marks the ones allocated to them.",
+  [Role.ADMIN]:
+    "Everything a reviewer can do, plus decisions, allocation, settings, users and deletion.",
 };
