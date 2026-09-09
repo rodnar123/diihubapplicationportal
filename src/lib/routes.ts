@@ -46,6 +46,8 @@ export const ROUTES = {
   adminPreviewStep: (step: string) => `/admin/preview/${step}`,
   adminExportCsv: "/api/admin/applications/export",
   adminExportPdf: "/api/admin/applications/export-pdf",
+  adminExportScoresXlsx: "/api/admin/scores/export",
+  adminExportScoresPdf: "/api/admin/scores/export-pdf",
 } as const;
 
 /** Paths reachable without a session. */

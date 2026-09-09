@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Download, FileText } from "lucide-react";
+import { ClipboardList, Download, FileSpreadsheet, FileText } from "lucide-react";
 
 import { ApplicationFilters } from "@/components/admin/application-filters";
 import { ApplicationsTable } from "@/components/admin/applications-table";
@@ -67,6 +67,24 @@ export default async function AdminApplicationsPage({
               <a href={`${ROUTES.adminExportPdf}${exportQuery}`} download>
                 <FileText className="size-4" aria-hidden />
                 Export PDFs
+              </a>
+            </Button>
+            {/*
+              The scores exports are the panel's marking rather than the
+              entries themselves, so they are labelled by what they contain and
+              not by their file type — "Export PDFs" and "Scores (PDF)" are
+              both PDFs of very different things.
+            */}
+            <Button asChild variant="outline">
+              <a href={`${ROUTES.adminExportScoresXlsx}${exportQuery}`} download>
+                <FileSpreadsheet className="size-4" aria-hidden />
+                Scores (Excel)
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={`${ROUTES.adminExportScoresPdf}${exportQuery}`} download>
+                <ClipboardList className="size-4" aria-hidden />
+                Scores (PDF)
               </a>
             </Button>
           </>
